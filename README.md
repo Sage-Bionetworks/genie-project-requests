@@ -1,2 +1,2 @@
-# genie-requests
-Stand-alone scripts for quick checks or tasks for GENIE
+# genie_requests
+Scripts for quick checks for GENIE

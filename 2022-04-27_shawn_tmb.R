@@ -139,7 +139,7 @@ save_to_synapse(path = file_output,
                             prov_name = "TMB estimate for subset", 
                             prov_desc = "Tumor mutation burden (TMB) estimates for a subset of main GENIE samples", 
                             prov_used = c(synid_file_ids, synid_file_tmb), 
-                            prov_exec = NA)
+                            prov_exec = "https://github.com/Sage-Bionetworks/genie-project-requests/blob/main/2022-04-27_shawn_tmb.R")
 file.remove(file_output)
 
 # close out ----------------------------

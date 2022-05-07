@@ -205,6 +205,9 @@ synid_file_output <- save_to_synapse (path = outfile,
                   prov_used = NA, 
                   prov_exec = "https://github.com/Sage-Bionetworks/genie-project-requests/blob/main/2022-05-06_jocelyn_gene_team_lists.R")
 
+# clean up
+file.remove(outfile)
+
 # close out ----------------------------
 
 print(glue("Team member list written to '{outfile}' at {synid_file_output}."))

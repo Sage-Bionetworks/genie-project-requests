@@ -131,7 +131,7 @@ df_dup1 <- mat[which(duplicated(mat[,"sample_id"])), ]
 df_dup2 <- mat[which(duplicated(mat[,"sample_id"], fromLast = T)), ]
 print(rbind(df_dup1, df_dup2))
 
-?pref_sample_ids <- as.character(unlist(sapply(sample_ids, add_genie_prefix)))
+pref_sample_ids <- as.character(unlist(sapply(mat[,"sample_id"], add_genie_prefix)))
 print(pref_sample_ids[which(duplicated(pref_sample_ids))])
 
 # close out ----------------------------

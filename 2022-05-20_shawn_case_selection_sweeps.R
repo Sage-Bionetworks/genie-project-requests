@@ -390,6 +390,9 @@ if (!is.na(synid_folder_output)) {
 
 # close out ----------------------------
 
+# clean up
+file.remove(file_config)
+
 if (verbose) {
   if (!is.na(synid_folder_output)) {
     print(glue("file {outfile} saved to synapse at {synid_file_output}"))

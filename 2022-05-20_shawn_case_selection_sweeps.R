@@ -189,6 +189,39 @@ get_seq_dates <- function(config, phase, cohort, site) {
   return(seq_dates)
 }
 
+get_synapse_entity_data_in_csv <- function(synapse_id, 
+                                           version = NA,
+                                           sep = ",", 
+                                           na.strings = c("NA"), 
+                                           header = T,
+                                           check_names = F,
+                                           comment.char = "#",
+                                           colClasses = "character") {
+  
+  if (is.na(version)) {
+    entity <- synGet(synapse_id)
+  } else {
+    entity <- synGet(synapse_id, version = version)
+  }
+  
+  data <- read.csv(entity$path, stringsAsFactors = F, 
+                   na.strings = na.strings, sep = sep, check.names = check_names,
+                   header = header, comment.char = comment.char)
+  return(data)
+}
+
+get_patient_ids_bpc_removed <- function(synid_table_patient_removal, cohort) {
+  query <- glue("SELECT record_id FROM {synid_table_patient_removal} WHERE {cohort} = 'true'")
+  res <- as.character(unlist(as.data.frame(synTableQuery(query, includeRowIdAndRowVersion = F))))
+  return(res)
+}
+
+get_sample_ids_bpc_removed <- function(synid_table_sample_removal, cohort) {
+  query <- glue("SELECT SAMPLE_ID FROM {synid_table_sample_removal} WHERE {cohort} = 'true'")
+  res <- as.character(unlist(as.data.frame(synTableQuery(query, includeRowIdAndRowVersion = F))))
+  return(res)
+}
+
 get_patient_ids_in_release <- function(synid_file_release) {
   
   data <- get_synapse_entity_data_in_csv(synid_file_release)
@@ -357,7 +390,7 @@ for (site in sites) {
   }
   
   seq_dates <- get_seq_dates(config, phase, cohort, site)
-  seq_min_dates <- get_month_dates(seq_min_date = min_seq_date, seq_max_date = seq_date_to_posix(seq_dates$seq_max))
+  seq_min_dates <- intersect(seq_min_dates_all, get_month_dates(seq_min_date = min_seq_date, seq_max_date = seq_date_to_posix(seq_dates$seq_max)))
   
   for (seq_min in seq_min_dates) {
     

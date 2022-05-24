@@ -152,7 +152,6 @@ rownames(df_sweep) <- rownames(df_raw)
 
 
 filename <- get_synapse_entity_name(synid_file_input)
-outplot <- gsub(x = filename, pattern = ".csv", replacement = ".pdf", fixed = T)
   
 sites <- colnames(df_sweep)
 cohort <- toupper(gsub(pattern = ".csv", replacement = "", fixed = T, 
@@ -176,7 +175,10 @@ for (site in sites) {
 
 # plot ----------------------
 
-pdf(outplot)
+outplot1 <- gsub(x = filename, pattern = ".csv", replacement = "_raw.png", fixed = T)
+outplot2 <- gsub(x = filename, pattern = ".csv", replacement = "_frac.png", fixed = T)
+
+png(outplot1)
 
 # plot raw number of eligible cases
 df_plot_raw <- reshape2::melt(df_sweep) 
@@ -187,7 +189,11 @@ ggplot(data=df_plot_raw, aes(x=min_seq_date, y=n_eligible, group=site, color = s
   xlab("Minimum sequencing date") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_x_discrete(breaks = grep(pattern = "Jan", x = df_plot_raw$min_seq_date, value = T)) +
-  ggtitle(cohort)
+  ggtitle(glue("Phase 2: {cohort}"))
+
+dev.off()
+
+png(outplot2)
 
 # plot percent of target eligible cases
 df_plot_frac <- reshape2::melt(df_frac) 
@@ -200,16 +206,24 @@ ggplot(data=df_plot_frac, aes(x=min_seq_date, y=n_eligible, group=site, color = 
   scale_x_discrete(breaks = grep(pattern = "Jan", x = df_plot_frac$min_seq_date, value = T)) +
   ggtitle(glue("Phase 2: {cohort}"))
 
-graphics.off()
+dev.off()
 
 if (!is.na(synid_folder_output)) {
-  synid_file_output <- save_to_synapse(path = outplot, 
+  synid_file_output1 <- save_to_synapse(path = outplot1, 
                               parent_id = synid_folder_output, 
-                              prov_name = "BPC phase 2case selection", 
-                              prov_desc = "Plots of BPC phase 2 case selection sweeps for eligible patient counts by site and cohort", 
+                              prov_name = "BPC phase 2 case selection", 
+                              prov_desc = "Plots of BPC phase 2 case selection sweeps for raw eligible patient counts by site and cohort", 
                               prov_used = c(synid_file_input), 
                               prov_exec = "https://github.com/Sage-Bionetworks/genie-project-requests/blob/main/2022-05-23_shawn_plot_case_selection_sweeps.R")
-  file.remove(outplot)
+  file.remove(outplot1)
+  
+  synid_file_output1 <- save_to_synapse(path = outplot2, 
+                                        parent_id = synid_folder_output, 
+                                        prov_name = "BPC phase 2 case selection", 
+                                        prov_desc = "Plots of BPC phase 2 case selection sweeps for fraction of target eligible patient by site and cohort", 
+                                        prov_used = c(synid_file_input), 
+                                        prov_exec = "https://github.com/Sage-Bionetworks/genie-project-requests/blob/main/2022-05-23_shawn_plot_case_selection_sweeps.R")
+  file.remove(outplot2)
 }
 
 # close out ----------------------------

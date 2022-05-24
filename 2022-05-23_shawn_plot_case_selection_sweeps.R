@@ -38,14 +38,14 @@ waitifnot <- function(cond, msg) {
 option_list <- list( 
   make_option(c("-i", "--synid_file_input"), type = "character",
               help="Synapse ID of input file"),
-  make_option(c("-o", "--synid_folder_output"), type = "character",
-              help="Synapse ID of output folder"),
+  make_option(c("-o", "--synid_folder_output"), type = "character", default = NA,
+              help="Synapse ID of output folder (default: write locally only)"),
   make_option(c("-v", "--verbose"), action="store_true", default = FALSE, 
-              help="Output script messages to the user.")
+              help="Output script messages to the user (default: FALSE)")
 )
 opt <- parse_args(OptionParser(option_list=option_list))
 waitifnot(!is.null(opt$synid_file_input) && !is.null(opt$synid_folder_output),
-          msg = "Rscript template.R -h")
+          msg = "Rscript 2022-05-23_shawn_plot_case_selection_sweeps.R -h")
 
 synid_file_input <- opt$synid_file_input
 synid_folder_output <- opt$synid_folder_output
@@ -147,77 +147,70 @@ status <- synLogin()
 
 df_raw <- get_synapse_entity_data_in_csv(synid_file_input, 
                                            row.names = "")
-df_sweep <- sapply(df_sweep, as.integer)
+df_sweep <- sapply(df_raw, as.integer)
 rownames(df_sweep) <- rownames(df_raw)
 
+
 filename <- get_synapse_entity_name(synid_file_input)
+outplot <- gsub(x = filename, pattern = ".csv", replacement = ".pdf", fixed = T)
+  
+sites <- colnames(df_sweep)
 cohort <- toupper(gsub(pattern = ".csv", replacement = "", fixed = T, 
                        x = gsub(pattern = "case_selection_sweep_2_", replacement = "", x = filename)))
 
 status <- download.file(url, destfile = file_config, method = "wget")
 config <- read_yaml(file_config)
+file.remove(filename)
 
 # main ----------------------------
 
-pal <- "Dark2"
-ylimits <- c(0, max(df_sweep))
-colors <- setNames(brewer.pal(n = ncol(df_sweep), name = pal), colnames(df_sweep))
+# storage
+n_prod <- setNames(rep(NA, length(sites)), sites)
+df_frac <- df_sweep
 
-# plot raw counts
-for (j in 1:ncol(df_sweep)) {
-  
-  site <- colnames(df_sweep)[j]
-  n_prod <- get_production_target(config, phase, cohort, site)
-  
-  if (j == 1) {
-    plot(df_sweep[,j], 
-         xlab = "Minimum sequencing date", 
-         ylab = "Number of eligible cases",
-         col = colors[site], type = "l", 
-         xaxt = "n",
-         ylim = ylimits,
-         main = cohort)
-    axis(side = 1, at = c(1:nrow(df_sweep)), labels = rownames(df_sweep))
-  } else {
-    points(df_sweep[,j], col = colors[site], type = "l")
-  }
-  abline(h = n_prod, col = colors[site], lty = 2)
+for (site in sites) {
+  n_prod[site] <- get_production_target(config, phase, cohort, site)
+  df_frac[,site] <- df_sweep[,site] / n_prod[site]
+  df_frac[which(df_frac > 1)] <- 1
 }
-legend(x = "topright", legend = colnames(df_sweep), col = colors, lwd = 3)
 
-# plot percentage to target counts
-for (j in 1:ncol(df_sweep)) {
-  
-  site <- colnames(df_sweep)[j]
-  n_prod <- get_production_target(config, phase, cohort, site)
-  frac_target <- df_sweep[,j] / n_prod
-  frac_target[which(frac_target > 1)] <- 1
-  
-  if (j == 1) {
-    plot(frac_target, 
-         xlab = "Minimum sequencing date", 
-         ylab = "Fraction of target eligible cases",
-         col = colors[site], type = "l", 
-         xaxt = "n",
-         ylim = c(0,1),
-         main = cohort)
-    axis(side = 1, at = c(1:nrow(df_sweep)), labels = rownames(df_sweep))
-  } else {
-    points(frac_target, col = colors[site], type = "l")
-  }
-}
-legend(x = "bottomleft", legend = colnames(df_sweep), col = colors, lwd = 3)
+# plot ----------------------
 
-df_plot <- reshape2::melt(df_sweep) 
-colnames(df_plot) <- c("min_seq_date", "site", "n_eligible")
-ggplot(data=df_plot, aes(x=min_seq_date, y=n_eligible, group=site, color = site)) +
+pdf(outplot)
+
+# plot raw number of eligible cases
+df_plot_raw <- reshape2::melt(df_sweep) 
+colnames(df_plot_raw) <- c("min_seq_date", "site", "n_eligible")
+ggplot(data=df_plot_raw, aes(x=min_seq_date, y=n_eligible, group=site, color = site)) +
   geom_line() +
   ylab("Number of eligible cases") +
   xlab("Minimum sequencing date") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_x_discrete(breaks = grep(pattern = "Jan", x = df_plot$min_seq_date, value = T)) +
+  scale_x_discrete(breaks = grep(pattern = "Jan", x = df_plot_raw$min_seq_date, value = T)) +
   ggtitle(cohort)
 
+# plot percent of target eligible cases
+df_plot_frac <- reshape2::melt(df_frac) 
+colnames(df_plot_frac) <- c("min_seq_date", "site", "n_eligible")
+ggplot(data=df_plot_frac, aes(x=min_seq_date, y=n_eligible, group=site, color = site)) +
+  geom_line() +
+  ylab("Fraction of target eligible cases") +
+  xlab("Minimum sequencing date") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(breaks = grep(pattern = "Jan", x = df_plot_frac$min_seq_date, value = T)) +
+  ggtitle(glue("Phase 2: {cohort}"))
+
+graphics.off()
+
+if (!is.na(synid_folder_output)) {
+  synid_file_output <- save_to_synapse(path = outplot, 
+                              parent_id = synid_folder_output, 
+                              prov_name = "BPC phase 2case selection", 
+                              prov_desc = "Plots of BPC phase 2 case selection sweeps for eligible patient counts by site and cohort", 
+                              prov_used = c(synid_file_input), 
+                              prov_exec = "https://github.com/Sage-Bionetworks/genie-project-requests/blob/main/2022-05-23_shawn_plot_case_selection_sweeps.R")
+  file.remove(outplot)
+}
 
 # close out ----------------------------
 

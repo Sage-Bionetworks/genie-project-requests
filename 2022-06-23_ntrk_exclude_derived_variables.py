@@ -1,6 +1,6 @@
 """
 Exclude derived variables from NTRK study
-1. Take this excel file and download: https://www.synapse.org/#!Synapse:syn22294851
+1. Take this excel file and download: https://www.synapse.org/#!Synapse:syn22294851.163
    and change into csv: data_dict.csv
 2. 
 """

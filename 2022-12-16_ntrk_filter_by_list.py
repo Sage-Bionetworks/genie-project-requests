@@ -23,13 +23,13 @@ var_to_release = list(set(sor['variable']))
 var_to_release = var_to_release + ['redcap_repeat_instance']
 temp_retraction = syn.tableQuery("SELECT genie_id, site FROM syn49097276 WHERE project='NTRK'").asDataFrame()
 
-info = {"PROV":"syn49090867", "UCSF":"syn49090888","VICC":"syn49090681","DFCI":"syn49770249","MSK":"syn50913015"}
-out_folder_id = {"PROV":"syn49091082","UCSF":"syn49089325", "VICC":"syn49091348","DFCI":"syn49688680", "MSK":"syn50913052"}
-staging_id = {"PROV":"syn50118024","UCSF":"syn50118020", "VICC":"syn50118032","DFCI":"syn50117991","MSK":"syn50913017"}
+info = {"PROV":"syn49090867", "UCSF":"syn49090888","VICC":"syn49090681","DFCI":"syn49770249","MSK":"syn50913015", "CHOP":"syn50941169"}
+out_folder_id = {"PROV":"syn49091082","UCSF":"syn49089325", "VICC":"syn49091348","DFCI":"syn49688680", "MSK":"syn50913052", "CHOP":"syn49377214"}
+staging_id = {"PROV":"syn50118024","UCSF":"syn50118020", "VICC":"syn50118032","DFCI":"syn50117991","MSK":"syn50913017", "CHOP":"syn50118000"}
 
 for site in info:
     print("Create release file for", site)
-    print("Download laballed data...")
+    print("Download labelled data...")
     syn_obj = syn.get(info[site])
     out_fname = syn_obj.name+"_release.csv"
     df = pandas.read_csv(syn_obj.path,dtype=str)

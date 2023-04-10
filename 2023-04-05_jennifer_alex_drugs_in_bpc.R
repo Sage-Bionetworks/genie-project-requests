@@ -6,8 +6,13 @@
 #    The desired output format is excel.
 # Author: Alex Paynter
 
+output_location_synid <- "syn51315167" # private synapse project, you can change it to any other private folder and this will work.
+prev_xlsx_work_synid <- "syn51315166" # from Jennifer Hoppe, put in synapse for ease.  
+
 library(synapser)
+library(readxl)
 library(readr)
+library(stringr)
 library(dplyr)
 library(tidyr)
 library(purrr)
@@ -144,15 +149,70 @@ dft_cohort_comb %<>%
   arrange(drug_name, cohort)
 
 
-# Todo:  
-# create synapse folder for output
-# output as an excel file
-# check with what Jen produced if possible.
 
 
-  
-# tests:
-# merge_one_folder("syn50612196"),
-# test <- get_synapse_entity_data_in_csv('syn50908661')
+ent <- synGet(prev_xlsx_work_synid)
+jen_xl <- readxl::read_xlsx(ent$path,
+                            sheet = 1,
+                            col_names = "chr") 
+# The excel sheet is a pivot table, so we have the cohort names smashed in
+#   with the drugs that were discovered.  Let's remove the cohort labels 
+#   and a few other strings that won't help us:
+cohort_names <- c("Breast", "Prostate", "NSCLC", "Bladder", "CRC", "PANC",
+                  "(blank)", "Grand Total", "BPC Agents with Corresponding Cohort")
+ind_drugs_found_xl <- jen_xl %>%
+  filter(!(chr %in% cohort_names)) %>%
+  pull(chr)
+
+ind_drugs_found_r <- dft_cohort_comb %>%
+  filter(obs_index %in% 1) %>%
+  pull(drug_name) %>%
+  # remove the parenthetical info from the drugs to match Jen's style:
+  str_replace(., pattern = "\\(.*", "") %>%
+  str_trim() %>%
+  unique
+
+# What are the differences?
+setdiff(ind_drugs_found_r,
+        ind_drugs_found_xl) %>%
+  paste(collapse = ", ")
+setdiff(ind_drugs_found_xl,
+        ind_drugs_found_r)
+# Good!  No drugs found in excel that weren't found in R.  Just a handful found
+#   in R but not excel.
+
+
+# Collapsing the tidier format into something better for the end user:
+dft_cohort_comb %<>%
+  mutate(drug_name = str_replace(drug_name, pattern = "\\(.*", ""),
+         drug_name = str_trim(drug_name))
+
+dfp_drugs_by_cohort <- dft_cohort_comb %>%
+  mutate(obs_index = if_else(obs_index %in% 1, "Yes", "No"),
+         obs_nonindex = if_else(obs_nonindex %in% 1, "Yes", "No"))
+
+readr::write_csv(dfp_drugs_by_cohort,
+                 file = "drugs_by_cohort.csv")
+synapser::File("drugs_by_cohort.csv",
+               parent = output_location_synid) %>%
+  synStore()
+
+# one other format I think will help:
+dfp_one_row_per_drug <- dft_cohort_comb %>% 
+  group_by(drug_name) %>%
+  summarize(cohort = paste(cohort, collapse = ", "),
+            obs_index = max(obs_index),
+            obs_nonindex = max(obs_nonindex),
+            .groups = "drop") %>%
+  mutate(obs_index = if_else(obs_index %in% 1, "Yes", "No"),
+         obs_nonindex = if_else(obs_nonindex %in% 1, "Yes", "No"))
+
+readr::write_csv(dfp_one_row_per_drug,
+                 file = "one_row_per_drug.csv")
+synapser::File("one_row_per_drug.csv",
+               parent = output_location_synid) %>%
+  synStore()
+
+
   
   

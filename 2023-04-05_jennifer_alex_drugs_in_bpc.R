@@ -6,8 +6,8 @@
 #    The desired output format is excel.
 # Author: Alex Paynter
 
-output_location_synid <- "syn51315167" # private synapse project, you can change it to any other private folder and this will work.
-prev_xlsx_work_synid <- "syn51315166" # from Jennifer Hoppe, put in synapse for ease.  
+output_location_synid <- "syn51317177" # in 'GENIE BioPharma Collaborative Internal' > requests
+prev_xlsx_work_synid <- "syn51317178" # from Jennifer Hoppe, put in synapse for ease.  
 
 library(synapser)
 library(readxl)

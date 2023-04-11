@@ -151,6 +151,10 @@ dft_cohort_comb %<>%
 
 
 
+###############################
+# Checking with previous work #
+###############################
+
 ent <- synGet(prev_xlsx_work_synid)
 jen_xl <- readxl::read_xlsx(ent$path,
                             sheet = 1,
@@ -197,7 +201,7 @@ synapser::File("drugs_by_cohort.csv",
                parent = output_location_synid) %>%
   synStore()
 
-# one other format I think will help:
+# one other format I think may help:
 dfp_one_row_per_drug <- dft_cohort_comb %>% 
   group_by(drug_name) %>%
   summarize(cohort = paste(cohort, collapse = ", "),

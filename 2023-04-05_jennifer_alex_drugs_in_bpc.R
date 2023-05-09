@@ -201,21 +201,6 @@ synapser::File("drugs_by_cohort.csv",
                parent = output_location_synid) %>%
   synStore()
 
-# one other format I think may help:
-dfp_one_row_per_drug <- dft_cohort_comb %>% 
-  group_by(drug_name) %>%
-  summarize(cohort = paste(cohort, collapse = ", "),
-            obs_index = max(obs_index),
-            obs_nonindex = max(obs_nonindex),
-            .groups = "drop") %>%
-  mutate(obs_index = if_else(obs_index %in% 1, "Yes", "No"),
-         obs_nonindex = if_else(obs_nonindex %in% 1, "Yes", "No"))
-
-readr::write_csv(dfp_one_row_per_drug,
-                 file = "one_row_per_drug.csv")
-synapser::File("one_row_per_drug.csv",
-               parent = output_location_synid) %>%
-  synStore()
 
 
   

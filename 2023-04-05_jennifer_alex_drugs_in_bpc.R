@@ -7,7 +7,6 @@
 # Author: Alex Paynter
 
 output_location_synid <- "syn51317177" # in 'GENIE BioPharma Collaborative Internal' > requests
-prev_xlsx_work_synid <- "syn51317178" # from Jennifer Hoppe, put in synapse for ease.  
 
 library(synapser)
 library(readxl)
@@ -35,6 +34,20 @@ get_synapse_entity_data_in_csv <- function(synapse_id,
                    progress = F)
   return(data)
 }
+
+
+# takes a list of character vectors.  It returns the unique sorted set of non-NA
+#   values, separated by commas.
+list_helper <- function(l) {
+  c(l) %>%
+    unlist %>%
+    discard(., .p = is.na) %>%
+    unique %>%
+    sort %>%
+    paste(., collapse = ", ")
+}
+
+list_helper(list(list(1), list(1)))
 
 # The synapse ID here should be the folder containing csv data, such as
 #   cancer_level_dataset_index.csv
@@ -72,18 +85,20 @@ merge_one_folder <- function(synid_fold) {
        select(record_id, ca_seq) %>%
        mutate(index_ca = T)),
     (dft_ca_non_index %>%
-       select(record_id, ca_seq) %>%
+       select(record_id, ca_seq, ca_d_site) %>%
        mutate(index_ca = F))
   )
+  
+  
   
   dft_reg_aug <- dft_regimen %>%
     left_join(., ca_comb, by = c("record_id", "ca_seq"))
   
   # for now we just want a list of the drugs used:
   dft_reg_aug %<>% 
-    select(cohort, record_id, ca_seq, index_ca,
+    select(cohort, record_id, ca_seq, index_ca, ca_d_site,
            contains("drugs_drug")) %>%
-    pivot_longer(cols = -c(cohort, record_id, ca_seq, index_ca),
+    pivot_longer(cols = -c(cohort, record_id, ca_seq, index_ca, ca_d_site),
                  names_to = "drug_num",
                  values_to = "drug_name") %>%
     mutate(
@@ -97,11 +112,21 @@ merge_one_folder <- function(synid_fold) {
     filter(!is.na(drug_name)) %>%
     # first get a 0/1 for each person:
     group_by(drug_name, cohort, index_ca, record_id) %>%
-    summarize(obs = 1, .groups = "drop") %>%
+    summarize(
+      obs = 1,
+      non_index_ca = as.list(ca_d_site),
+      .groups = "drop"
+    ) 
+
+  dft_reg_aug %<>%
     # now summarize over all participants.  cohort and index_ca are constant, so 
     #   "grouping by" is just a way to propagate them.
     group_by(drug_name, cohort, index_ca) %>%
-    summarize(n = n(), .groups = "drop") %>%
+    summarize(
+      n = n(),
+      non_ind_ca = list_helper(non_index_ca),
+      .groups = "drop"
+    )
   
   return(dft_reg_aug)
 }
@@ -132,8 +157,14 @@ dft_cohort_comb <- dft_folders %>%
   pull(dat) %>%
   dplyr::bind_rows(.)
 
+# Pull out the nonindex ca lists, we can bring them back in later:
+dft_non_ind_ca <- dft_cohort_comb %>%
+  filter(!index_ca) %>%
+  select(drug_name, cohort, non_ind_ca) 
+
 # At this point we have counts of subjects, need yes/no observed to meet goals.
 dft_cohort_comb %<>%
+  select(-non_ind_ca) %>%
   mutate(index_ca = if_else(index_ca, "index_n", "nonindex_n")) %>%
   pivot_wider(
     names_from = "index_ca",
@@ -147,6 +178,13 @@ dft_cohort_comb %<>%
 dft_cohort_comb %<>%
   select(drug_name, cohort, obs_index, obs_nonindex) %>%
   arrange(drug_name, cohort)
+
+dft_cohort_comb <- left_join(
+    dft_cohort_comb,
+    dft_non_ind_ca,
+    by = c("drug_name", "cohort")
+  )
+
 
 
 

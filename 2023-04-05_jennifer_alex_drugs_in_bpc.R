@@ -47,8 +47,6 @@ list_helper <- function(l) {
     paste(., collapse = ", ")
 }
 
-list_helper(list(list(1), list(1)))
-
 # The synapse ID here should be the folder containing csv data, such as
 #   cancer_level_dataset_index.csv
 merge_one_folder <- function(synid_fold) {
@@ -90,15 +88,16 @@ merge_one_folder <- function(synid_fold) {
   )
   
   
-  
   dft_reg_aug <- dft_regimen %>%
     left_join(., ca_comb, by = c("record_id", "ca_seq"))
   
   # for now we just want a list of the drugs used:
   dft_reg_aug %<>% 
     select(cohort, record_id, ca_seq, index_ca, ca_d_site,
+           institution,
            contains("drugs_drug")) %>%
-    pivot_longer(cols = -c(cohort, record_id, ca_seq, index_ca, ca_d_site),
+    pivot_longer(cols = -c(cohort, record_id, ca_seq, index_ca, 
+                           ca_d_site, institution),
                  names_to = "drug_num",
                  values_to = "drug_name") %>%
     mutate(
@@ -111,7 +110,7 @@ merge_one_folder <- function(synid_fold) {
   dft_reg_aug %<>%
     filter(!is.na(drug_name)) %>%
     # first get a 0/1 for each person:
-    group_by(drug_name, cohort, index_ca, record_id) %>%
+    group_by(cohort, institution, drug_name, index_ca, record_id) %>%
     summarize(
       obs = 1,
       non_index_ca = as.list(ca_d_site),
@@ -121,13 +120,13 @@ merge_one_folder <- function(synid_fold) {
   dft_reg_aug %<>%
     # now summarize over all participants.  cohort and index_ca are constant, so 
     #   "grouping by" is just a way to propagate them.
-    group_by(drug_name, cohort, index_ca) %>%
+    group_by(cohort, institution, drug_name, index_ca) %>%
     summarize(
       n = n(),
       non_ind_ca = list_helper(non_index_ca),
       .groups = "drop"
-    )
-  
+    ) %>%
+    
   return(dft_reg_aug)
 }
 
@@ -143,8 +142,7 @@ dft_folders <- tibble::tribble(
   # cohorts that had no available releases at the time:
   #   CRC2, ESOPHAGO, MELANOMA, NSCLC2, OVARIAN, RENAL
 )
-# If you want to try one just do something like:
-# merge_one_folder(dft_folders[["synid"]][6])
+
 
 # We'll do them all at once:
 dft_cohort_comb <- dft_folders %>%
@@ -157,49 +155,99 @@ dft_cohort_comb <- dft_folders %>%
   pull(dat) %>%
   dplyr::bind_rows(.)
 
-# Pull out the nonindex ca lists, we can bring them back in later:
-dft_non_ind_ca <- dft_cohort_comb %>%
-  filter(!index_ca) %>%
-  select(drug_name, cohort, non_ind_ca) 
-
-# At this point we have counts of subjects, need yes/no observed to meet goals.
 dft_cohort_comb %<>%
-  select(-non_ind_ca) %>%
-  mutate(index_ca = if_else(index_ca, "index_n", "nonindex_n")) %>%
-  pivot_wider(
-    names_from = "index_ca",
-    values_from = "n") %>%
   mutate(
-    obs_index = if_else(index_n >= 1, 1, 0, 0),
-    obs_nonindex = if_else(nonindex_n >= 1, 1, 0, 0)
-  ) 
-
-# order it in the way that seems most helpful:
-dft_cohort_comb %<>%
-  select(drug_name, cohort, obs_index, obs_nonindex) %>%
-  arrange(drug_name, cohort)
-
-dft_cohort_comb <- left_join(
-    dft_cohort_comb,
-    dft_non_ind_ca,
-    by = c("drug_name", "cohort")
+    region = case_when(
+      institution %in% c("DFCI", "MSK", "VICC") ~ "US",
+      institution %in% c("UHN") ~ "Canada",
+      T ~ "error"
+    )
   )
+if (any(dft_cohort_comb$region %in% "error")) {
+  cli::cli_abort("Error on region list - were new sites added?")
+}
+
+# make this a function, so we can run it once for Canada and once for USA.
+process_output <- function(dat) {
+  # summarize over institutions:
+  dat %<>%
+    group_by(drug_name, cohort, index_ca) %>%
+    # turn this back into a list:
+    mutate(non_ind_ca = str_split(non_ind_ca, pattern = ", ")) %>%
+    summarize(
+      n = sum(n, na.rm = T),
+      non_ind_ca = list_helper(non_ind_ca),
+      .groups = 'drop'
+    )
+  
+  # Pull out the non-index cancer list, we'll put it back later:
+  ca_lists <- dat %>%
+    filter(!index_ca) %>%
+    select(drug_name, cohort, non_ind_ca)
+  dat %<>% select(-non_ind_ca)
+  
+  # Pivot the data into one row per {drug_name, cohort}, and take the counts
+  #   down to binary data.
+  dat %<>%
+    mutate(index_ca = if_else(index_ca, "index_n", "nonindex_n")) %>%
+    pivot_wider(
+      names_from = "index_ca",
+      values_from = "n") %>%
+    mutate(
+      obs_index = if_else(index_n >= 1, 1, 0, 0),
+      obs_nonindex = if_else(nonindex_n >= 1, 1, 0, 0)
+    ) 
+  
+  # order it in the way that seems most helpful:
+  dat %<>%
+    select(drug_name, cohort, obs_index, obs_nonindex) %>%
+    arrange(drug_name, cohort)
+  
+  rtn <- left_join(
+    dat,
+    ca_lists,
+    by = c("drug_name", "cohort")
+  ) %>%
+    # just for consistency:
+    mutate(non_ind_ca = if_else(non_ind_ca == "", NA_character_, non_ind_ca))
+  
+  # Formatting cleanup:
+  rtn %<>%
+    mutate(
+      drug_name = str_replace(drug_name, pattern = "\\(.*", ""),
+      drug_name = str_trim(drug_name),
+      obs_index = if_else(obs_index %in% 1, "Yes", "No"),
+      obs_nonindex = if_else(obs_nonindex %in% 1, "Yes", "No")
+    )
+  
+  return(rtn)
+}
+
+# Manual check on the previous output which did not split by region.  We had 580
+#   rows in that output (plus header).
+# dft_cohort_comb %>% process_output(.) %>% nrow(.)
+dft_us <- dft_cohort_comb %>% 
+  filter(region %in% "US") %>%
+  process_output(.)
+
+dft_canada <- dft_cohort_comb %>% 
+  filter(region %in% "Canada") %>%
+  process_output(.)
 
 
 
 
-# Collapsing the tidier format into something better for the end user:
-dft_cohort_comb %<>%
-  mutate(drug_name = str_replace(drug_name, pattern = "\\(.*", ""),
-         drug_name = str_trim(drug_name))
 
-dfp_drugs_by_cohort <- dft_cohort_comb %>%
-  mutate(obs_index = if_else(obs_index %in% 1, "Yes", "No"),
-         obs_nonindex = if_else(obs_nonindex %in% 1, "Yes", "No"))
 
-readr::write_csv(dfp_drugs_by_cohort,
-                 file = "drugs_by_cohort.csv")
-synapser::File("drugs_by_cohort.csv",
+readr::write_csv(dft_us,
+                 file = "drugs_by_cohort_us.csv")
+synapser::File("drugs_by_cohort_us.csv",
+               parent = output_location_synid) %>%
+  synStore()
+
+readr::write_csv(dft_canada,
+                 file = "drugs_by_cohort_canada.csv")
+synapser::File("drugs_by_cohort_canada.csv",
                parent = output_location_synid) %>%
   synStore()
 

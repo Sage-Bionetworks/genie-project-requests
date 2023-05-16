@@ -87,7 +87,6 @@ merge_one_folder <- function(synid_fold) {
        mutate(index_ca = F))
   )
   
-  
   dft_reg_aug <- dft_regimen %>%
     left_join(., ca_comb, by = c("record_id", "ca_seq"))
   
@@ -253,5 +252,47 @@ synapser::File("drugs_by_cohort_canada.csv",
 
 
 
-  
-  
+
+
+
+
+# Got a question from Jeremy Warner on cases where non_ind_ca is blank but
+#   obs_nonindex = "Yes".  I suggested examples to illustrate.
+# These are commented out, but just uncomment to run them.
+
+# Finding examples:
+# dft_us %>% filter(obs_nonindex %in% "Yes" & is.na(non_ind_ca))
+
+
+# Acalabrutinib in NSCLC.
+# nsclc_reg <- get_synapse_entity_data_in_csv(
+#   synapse_id = "syn30350582"
+# )
+# nsclc_cases <- nsclc_reg %>% 
+#   filter(str_detect(regimen_drugs, "Acalabrutinib")) %>%
+#   select(record_id, ca_seq)
+# nsclc_non_index_cases <- get_synapse_entity_data_in_csv(
+#   synapse_id = "syn30350577"
+# ) %>%
+#   left_join(nsclc_cases, ., by = c('record_id', 'ca_seq')) %>%
+#   select('record_id', 'ca_seq', 'ca_d_site')
+# nsclc_non_index_cases
+# 
+# # Darolutamide in Prostate cancer.
+# prostate_reg <- get_synapse_entity_data_in_csv(
+#   synapse_id = "syn50908668"
+# )
+# prostate_cases <- prostate_reg %>% 
+#   filter(str_detect(regimen_drugs, "Darolutamide")) %>%
+#   select(record_id, ca_seq)
+# prostate_non_index_cases <- get_synapse_entity_data_in_csv(
+#   synapse_id = "syn50908662"
+# ) %>%
+#   inner_join(prostate_cases, ., by = c('record_id', 'ca_seq')) %>%
+#   select('record_id', 'ca_seq', 'ca_d_site')
+# prostate_non_index_cases
+# 
+
+
+
+

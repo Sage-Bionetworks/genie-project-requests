@@ -168,19 +168,48 @@ if((
 )) {
   cli::cli_abort("Problem with the pulling done by merge_one_folder.")
 }
+
+
+
+
    
 # Request from May 18, 2023: Output a list of all participants with non-index
 #  cancer drug regimens who had missing ca_d_site for that cancer.
-count(dft_cohort_comb, cohort, record_id, drug_name, index_ca, sort = T)
-
-dft_cohort_comb %>%
-  filter(cohort %in% "Prostate" & record_id %in% "GENIE-MSK-P-0007887") %>%
-  filter(str_detect(drug_name, "Irinotecan")) %>%
+dft_ca_d_miss <- dft_cohort_comb %>% 
+  mutate(nic_blank = purrr::map_lgl(
+    .x = non_index_ca,
+    .f = (function(x) {
+      all(is.na(x))
+    })
+  )) %>%
   filter(!index_ca) %>%
-  pull(non_index_ca)
+  filter(nic_blank) 
 
-dft_cohort_comb %>% 
-  filter(!index_ca) 
+dft_ca_d_miss %<>% 
+  # multiple cancer sequences can be associated with each row.  Make them a
+  #   comma separated vector:
+  group_by(record_id, drug_name) %>%
+  mutate(ca_seq = list_helper(ca_seq)) %>%
+  ungroup(.) %>%
+  select(cohort, record_id, drug_name, ca_seq) %>%
+  arrange(cohort, record_id, drug_name, ca_seq) %>%
+  # clean up the drug names:
+  mutate(
+    drug_name = str_replace(drug_name, pattern = "\\(.*", ""),
+    drug_name = str_trim(drug_name)
+  )
+  
+readr::write_csv(dft_ca_d_miss,
+                 file = "missing_ca_d_nonindex.csv")
+synapser::File("missing_ca_d_nonindex.csv",
+               parent = output_location_synid) %>%
+  synStore()
+
+
+
+
+
+
 
 dft_cohort_comb %<>%
   mutate(

@@ -35,6 +35,14 @@ get_synapse_entity_data_in_csv <- function(synapse_id,
   return(data)
 }
 
+syn_upload_help <- function(obj, name) {
+  readr::write_csv(obj,
+                   file = name,
+                   na = "")
+  synapser::File(name, parent = output_location_synid) %>%
+    synStore()
+}
+
 
 # takes a list of character vectors.  It returns the unique sorted set of non-NA
 #   values, separated by commas.
@@ -188,12 +196,9 @@ dft_ca_d_miss %<>%
     drug_name = str_trim(drug_name)
   )
   
-readr::write_csv(dft_ca_d_miss,
-                 file = "missing_ca_d_nonindex.csv")
-synapser::File("missing_ca_d_nonindex.csv",
-               parent = output_location_synid) %>%
-  synStore()
 
+syn_upload_help(obj = dft_ca_d_miss,
+                name = "missing_ca_d_nonindex.csv")
 
 
 
@@ -280,9 +285,7 @@ process_output <- function(dat) {
   return(rtn)
 }
 
-# Manual check on the previous output which did not split by region.  We had 580
-#   rows in that output (plus header).
-# dft_cohort_comb %>% process_output(.) %>% nrow(.)
+
 dft_us <- dft_cohort_comb %>% 
   filter(region %in% "US") %>%
   process_output(.)
@@ -293,65 +296,13 @@ dft_canada <- dft_cohort_comb %>%
 
 
 
+syn_upload_help(obj = dft_us,
+                name = "drugs_by_cohort_us.csv")
+syn_upload_help(obj = dft_canada,
+                name = "drugs_by_cohort_canada.csv")
 
 
 
-readr::write_csv(dft_us,
-                 file = "drugs_by_cohort_us.csv",
-                 na = "")
-synapser::File("drugs_by_cohort_us.csv",
-               parent = output_location_synid) %>%
-  synStore()
-
-readr::write_csv(dft_canada,
-                 file = "drugs_by_cohort_canada.csv",
-                 na = ""
-synapser::File("drugs_by_cohort_canada.csv",
-               parent = output_location_synid) %>%
-  synStore()
-
-
-
-
-
-
-
-# Got a question from Jeremy Warner on cases where non_ind_ca is blank but
-#   obs_nonindex = "Yes".  I suggested examples to illustrate.
-# These are commented out, but just uncomment to run them.
-
-# Finding examples:
-# dft_us %>% filter(obs_nonindex %in% "Yes" & is.na(non_ind_ca))
-
-
-# Acalabrutinib in NSCLC.
-# nsclc_reg <- get_synapse_entity_data_in_csv(
-#   synapse_id = "syn30350582"
-# )
-# nsclc_cases <- nsclc_reg %>% 
-#   filter(str_detect(regimen_drugs, "Acalabrutinib")) %>%
-#   select(record_id, ca_seq)
-# nsclc_non_index_cases <- get_synapse_entity_data_in_csv(
-#   synapse_id = "syn30350577"
-# ) %>%
-#   left_join(nsclc_cases, ., by = c('record_id', 'ca_seq')) %>%
-#   select('record_id', 'ca_seq', 'ca_d_site')
-# nsclc_non_index_cases
-# 
-# # Darolutamide in Prostate cancer.
-# prostate_reg <- get_synapse_entity_data_in_csv(
-#   synapse_id = "syn50908668"
-# )
-# prostate_cases <- prostate_reg %>% 
-#   filter(str_detect(regimen_drugs, "Darolutamide")) %>%
-#   select(record_id, ca_seq)
-# prostate_non_index_cases <- get_synapse_entity_data_in_csv(
-#   synapse_id = "syn50908662"
-# ) %>%
-#   inner_join(prostate_cases, ., by = c('record_id', 'ca_seq')) %>%
-#   select('record_id', 'ca_seq', 'ca_d_site')
-# prostate_non_index_cases
-# 
 
 
 

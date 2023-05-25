@@ -112,19 +112,20 @@ merge_one_folder <- function(synid_fold) {
     group_by(cohort, institution, drug_name, index_ca, record_id) %>%
     summarize(
       obs = 1,
-      non_index_ca = as.list(ca_d_site),
+      non_index_ca = list(ca_d_site),
       .groups = "drop"
-    ) 
-
-  dft_reg_aug %<>%
-    # now summarize over all participants.  cohort and index_ca are constant, so 
-    #   "grouping by" is just a way to propagate them.
-    group_by(cohort, institution, drug_name, index_ca) %>%
-    summarize(
-      n = n(),
-      non_ind_ca = list_helper(non_index_ca),
-      .groups = "drop"
-    ) %>%
+    )
+  
+  # 
+  # dft_reg_aug %<>%
+  #   # now summarize over all participants.  cohort and index_ca are constant, so 
+  #   #   "grouping by" is just a way to propagate them.
+  #   group_by(cohort, institution, drug_name, index_ca) %>%
+  #   summarize(
+  #     n = n(),
+  #     non_ind_ca = list_helper(non_index_ca),
+  #     .groups = "drop"
+  #   )
     
   return(dft_reg_aug)
 }
@@ -143,7 +144,7 @@ dft_folders <- tibble::tribble(
 )
 
 
-# We'll do them all at once:
+# Pull and merge the data associated with each synid in dft_folders.
 dft_cohort_comb <- dft_folders %>%
   mutate(
     dat = purrr::pmap(
@@ -153,6 +154,19 @@ dft_cohort_comb <- dft_folders %>%
   ) %>%
   pull(dat) %>%
   dplyr::bind_rows(.)
+
+# Request from May 18, 2023: Output a list of all participants with non-index
+#  cancer drug regimens who had missing ca_d_site for that cancer.
+count(dft_cohort_comb, cohort, record_id, drug_name, index_ca, sort = T)
+
+dft_cohort_comb %>%
+  filter(cohort %in% "Prostate" & record_id %in% "GENIE-MSK-P-0007887") %>%
+  filter(str_detect(drug_name, "Irinotecan")) %>%
+  filter(!index_ca) %>%
+  pull(non_index_ca)
+
+dft_cohort_comb %>% 
+  filter(!index_ca) 
 
 dft_cohort_comb %<>%
   mutate(

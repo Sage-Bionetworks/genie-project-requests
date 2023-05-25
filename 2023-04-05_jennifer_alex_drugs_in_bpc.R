@@ -116,17 +116,6 @@ merge_one_folder <- function(synid_fold) {
       ca_seq = list(ca_seq),
       .groups = "drop"
     )
-  
-  # 
-  # dft_reg_aug %<>%
-  #   # now summarize over all participants.  cohort and index_ca are constant, so 
-  #   #   "grouping by" is just a way to propagate them.
-  #   group_by(cohort, institution, drug_name, index_ca) %>%
-  #   summarize(
-  #     n = n(),
-  #     non_ind_ca = list_helper(non_index_ca),
-  #     .groups = "drop"
-  #   )
     
   return(dft_reg_aug)
 }
@@ -210,6 +199,18 @@ synapser::File("missing_ca_d_nonindex.csv",
 
 
 
+
+
+# Back to the main goal:  The list of drugs
+
+# Summarize over all participants
+dft_cohort_comb %<>%
+  group_by(cohort, institution, drug_name, index_ca) %>%
+  summarize(
+    n = sum(obs), # equivalent to n().
+    non_ind_ca = list_helper(non_index_ca),
+    .groups = "drop"
+  )
 
 dft_cohort_comb %<>%
   mutate(
@@ -296,13 +297,15 @@ dft_canada <- dft_cohort_comb %>%
 
 
 readr::write_csv(dft_us,
-                 file = "drugs_by_cohort_us.csv")
+                 file = "drugs_by_cohort_us.csv",
+                 na = "")
 synapser::File("drugs_by_cohort_us.csv",
                parent = output_location_synid) %>%
   synStore()
 
 readr::write_csv(dft_canada,
-                 file = "drugs_by_cohort_canada.csv")
+                 file = "drugs_by_cohort_canada.csv",
+                 na = ""
 synapser::File("drugs_by_cohort_canada.csv",
                parent = output_location_synid) %>%
   synStore()

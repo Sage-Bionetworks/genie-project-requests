@@ -113,6 +113,7 @@ merge_one_folder <- function(synid_fold) {
     summarize(
       obs = 1,
       non_index_ca = list(ca_d_site),
+      ca_seq = list(ca_seq),
       .groups = "drop"
     )
   
@@ -155,6 +156,19 @@ dft_cohort_comb <- dft_folders %>%
   pull(dat) %>%
   dplyr::bind_rows(.)
 
+# Sanity check:  We expect one row per {cohort, record_id, drug_name, index_ca}
+#   at this stage:
+if((
+    count(
+    dft_cohort_comb, cohort, record_id, drug_name, index_ca, 
+    sort = T) %>%
+   pull(n) %>% 
+   max(.,na.rm = T) %>%
+   is_greater_than(.,1)
+)) {
+  cli::cli_abort("Problem with the pulling done by merge_one_folder.")
+}
+   
 # Request from May 18, 2023: Output a list of all participants with non-index
 #  cancer drug regimens who had missing ca_d_site for that cancer.
 count(dft_cohort_comb, cohort, record_id, drug_name, index_ca, sort = T)

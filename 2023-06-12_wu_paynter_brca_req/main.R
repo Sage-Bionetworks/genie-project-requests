@@ -17,10 +17,16 @@ library(purrr)
 library(magrittr)
 library(glue)
 library(fs)
+library(mskcc.oncotree)
+library(hash)
 
 purrr::walk(fs::dir_ls('R'), .f = source)
 
 synLogin()
+
+# Set up a hash table for the oncotree codes:
+dft_oncotree <- mskcc.oncotree::get_tumor_types() %>%
+  select(oncotree_code, tissue)
 
 dft_releases <- get_syn_children_df(synid_releases)
 
@@ -81,6 +87,70 @@ test_clin_pt %>% glimpse
 test_clin_sample %>% glimpse
 test_clin_comb %>% glimpse
 test_mut %>% head %>% glimpse
+
+nam_pt <- test_clin_pt %>% names
+nam_samp <- test_clin_sample %>% names
+nam_comb <- test_clin_comb %>% names
+
+# We can create the patient file from the combined one:
+
+vec_clin_pt_vars <- c(
+  "patient_id", "sex", 'primary_race', 'secondary_race', 'tertiary_race', 
+  'ethnicity', 'birth_year', 'center', 'int_contact', 
+  'int_dod', 'year_contact', 'dead', 'year_death'
+)
+created_clin_pt <- test_clin_comb %>%
+  select(any_of(vec_clin_pt_vars)) %>%
+  distinct(.)
+waldo::compare(created_clin_pt, test_clin_pt)
+
+vec_clin_samp_vars <- c(    
+  'patient_id', 'sample_id', 'age_at_seq_report', 'oncotree_code',
+  'sample_type', 'seq_assay_id', 'cancer_type', 'cancer_type_detailed',
+  'age_at_seq_report_days', 'sample_type_detailed',
+  'seq_year', 'sample_class'
+)
+# Likewise for the sample file:
+created_clin_sample <- test_clin_comb %>%
+  select(any_of(vec_clin_samp_vars)) %>%
+  distinct(.)
+waldo::compare(created_clin_sample, test_clin_sample)
+
+# We can go the other way too:
+created_clin_comb <- left_join(
+  test_clin_sample,
+  test_clin_pt,
+  by = "patient_id"
+)
+waldo::compare(created_clin_comb, test_clin_comb)
+setdiff(
+  names(test_clin_comb),
+  names(created_clin_comb)
+)
+
+summarize_release_wu_brca <- function(
+  id_mut, 
+  id_clin_pt,
+  id_clin_sample, 
+  id_clin_comb,
+  dat_onco = dft_oncotree) {
+  
+  dat_mut <- get_synapse_entity_txt(id_mut, skip = 0)
+  
+  if (is.na(id_clin_comb)) {
+    dat_pt <- get_synapse_entity_txt(id_clin_pt, skip = 4)
+    dat_sample <- get_synapse_entity_txt(id_clin_sample, skip = 4)
+    dat_clin <- left_join(
+      
+    )
+  } else {
+    
+  }
+
+  
+}
+
+
 
 synGet(syn_link_obj_newest)
 

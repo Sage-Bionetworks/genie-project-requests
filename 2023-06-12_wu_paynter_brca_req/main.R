@@ -1,4 +1,6 @@
 # Description:  See https://sagebionetworks.jira.com/browse/GEN-768
+#   Note:  This file is very inefficient computationally.  Lots of data frame
+#   lists, lots of room for optimization.
 # Author: Alex Paynter
 
 
@@ -14,22 +16,15 @@ library(tidyr)
 library(purrr)
 library(magrittr)
 library(glue)
+library(fs)
+
+purrr::walk(fs::dir_ls('R'), .f = source)
 
 synLogin()
 
-get_syn_children_df <- function(sid) {
-  synGetChildren(sid) %>%
-    as.list %>%
-    purrr::map_dfr(
-      .x = .,
-      .f = as_tibble
-    ) %>%
-    select(name, id, createdOn)
-}
-
 dft_releases <- get_syn_children_df(synid_releases)
 
-# Recurse to expand for the children:
+# Recurse to subfolders:
 dft_releases %<>%
   rename(major = name) %>%
   mutate(
@@ -43,23 +38,64 @@ dft_releases %<>%
     minor_createdOn = createdOn
   )
 
-# adds the synpase IDs for the clinical, sample and mutation files.
-add_file_ids <- function(id) {
-  child_df <- get_syn_children_df(id) 
-  
-  valid_file_names <- c(
-    "data_clinical.txt",
-    "data_mutations_extended.txt",
-  )
-                        )
-  
-  child_df %>% filter
-}
+dft_releases <- dft_releases %>%
+  mutate(
+    df_file_ids = purrr::map(.x = minor_id, .f = add_select_file_ids)
+  ) %>%
+  unnest(df_file_ids)
 
-dft_releases %>% slice(1) %>% pull(minor_id) %>% get_syn_children_df
-    
 
-dft_releases %>% slice(1) %>% pull(id) %>% get_syn_children_df
+
+
+
+
+syn_link_obj <- dft_releases %>% 
+  slice(n()) %>% 
+  glimpse
+  pull(data_clinical_patient.txt) %>% 
+  get_synapse_entity_txt
+
+  
+syn_link_obj_newest <- dft_releases %>%
+  slice(n()) 
+
+# Skip levels:
+#   0 for clinical
+#   4 for clinical_patient or clinical_sample
+#   0 for mutation
+
+test_clin_pt <- syn_link_obj_newest %>%
+  pull(data_clinical_patient.txt) %>%
+  get_synapse_entity_txt(., skip = 4)
+test_clin_sample <- syn_link_obj_newest %>%
+  pull(data_clinical_sample.txt) %>%
+  get_synapse_entity_txt(., skip = 4)
+test_clin_comb <- syn_link_obj_newest %>%
+  pull(data_clinical.txt) %>%
+  get_synapse_entity_txt(., skip = 0)
+test_mut <- syn_link_obj_newest %>%
+  pull(data_mutations_extended.txt) %>%
+  get_synapse_entity_txt(., skip = 0)
+
+test_clin_pt %>% glimpse
+test_clin_sample %>% glimpse
+test_clin_comb %>% glimpse
+test_mut %>% head %>% glimpse
+
+synGet(syn_link_obj_newest)
+
+# get returns a function that gets the value associated with a key.
+synGet(syn_link_obj$properties$linksTo$get("targetId"))
+
+syn_link_obj$properties %>% names
+
+# example from prostate group:
+syn_nolink_obj <- synGet('syn50908661')
+syn_nolink_obj$properties %>% names
+
+
+
+
 
 if (any(stringr::str_detect(df_clin_children$name, ".csv^"))) {
   warning("Non-CSV files unexpectedly contained in {synid_clin_data}.")

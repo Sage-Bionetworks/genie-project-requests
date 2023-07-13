@@ -3,7 +3,7 @@
 #    the regimen datasets.  For each drug used, state the BPC cohort it was observed 
 #    in and whether it was observed as a regimen for a non-index or index cancer.   
 #    Use the latest release available, whether public or consortium, in each case.  
-#    The desired output format is excel.
+#    The desired output format is excel/csv.
 # Author: Alex Paynter
 
 output_location_synid <- "syn51317177" # in 'GENIE BioPharma Collaborative Internal' > requests
@@ -155,14 +155,14 @@ dft_cohort_comb <- dft_folders %>%
 
 # Sanity check:  We expect one row per {cohort, record_id, drug_name, index_ca}
 #   at this stage:
-if((
-    count(
+if(
+  (count(
     dft_cohort_comb, cohort, record_id, drug_name, index_ca, 
     sort = T) %>%
    pull(n) %>% 
    max(.,na.rm = T) %>%
-   is_greater_than(.,1)
-)) {
+   is_greater_than(.,1))
+) {
   cli::cli_abort("Problem with the pulling done by merge_one_folder.")
 }
 

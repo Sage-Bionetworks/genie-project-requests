@@ -42,6 +42,21 @@ dft_releases %<>%
     minor_id = id,
     minor_createdOn = createdOn
   )
+
+# adds the synpase IDs for the clinical, sample and mutation files.
+add_file_ids <- function(id) {
+  child_df <- get_syn_children_df(id) 
+  
+  valid_file_names <- c(
+    "data_clinical.txt",
+    "data_mutations_extended.txt",
+  )
+                        )
+  
+  child_df %>% filter
+}
+
+dft_releases %>% slice(1) %>% pull(minor_id) %>% get_syn_children_df
     
 
 dft_releases %>% slice(1) %>% pull(id) %>% get_syn_children_df

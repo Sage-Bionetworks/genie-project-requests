@@ -15,7 +15,8 @@ get_synapse_entity_txt <- function(
     file = entity$path,
     show_col_types = F,
     progress = F,
-    skip = skip
+    skip = skip,
+    comment = "#"
   )
   
   if (cols_to_lower) {

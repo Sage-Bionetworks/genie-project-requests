@@ -63,7 +63,7 @@ syn_link_obj <- dft_releases %>%
 
   
 syn_link_obj_newest <- dft_releases %>%
-  slice(n()) 
+  slice(1) 
 
 # Skip levels:
 #   0 for clinical
@@ -81,7 +81,7 @@ test_clin_comb <- syn_link_obj_newest %>%
   get_synapse_entity_txt(., skip = 0)
 test_mut <- syn_link_obj_newest %>%
   pull(data_mutations_extended.txt) %>%
-  get_synapse_entity_txt(., skip = 0)
+  get_synapse_entity_txt(., skip = 0, cols_to_lower = T)
 
 test_clin_pt %>% glimpse
 test_clin_sample %>% glimpse
@@ -130,25 +130,52 @@ setdiff(
 
 summarize_release_wu_brca <- function(
   id_mut, 
+  id_clin_comb,
   id_clin_pt,
   id_clin_sample, 
-  id_clin_comb,
   dat_onco = dft_oncotree) {
   
-  dat_mut <- get_synapse_entity_txt(id_mut, skip = 0)
+  dat_mut <- get_synapse_entity_txt(id_mut, skip = 0, cols_to_lower = T)
+  glimpse(dat_mut)
   
   if (is.na(id_clin_comb)) {
     dat_pt <- get_synapse_entity_txt(id_clin_pt, skip = 4)
     dat_sample <- get_synapse_entity_txt(id_clin_sample, skip = 4)
     dat_clin <- left_join(
-      
+      dat_sample,
+      dat_pt,
+      by = "patient_id"
     )
   } else {
-    
+    dat_clin <- get_synapse_entity_txt(id_clin_comb, skip = 0)
   }
-
+  
+  dat_mut %<>% select(
+    all_of(c('tumor_sample_barcode', 'hugo_symbol', 'mutation_status')),
+    any_of('center')
+  )
+  
+  dat_clin %<>%
+    select(
+      all_of(c('sample_id', 'patient_id', 'oncotree_code')),
+      any_of(c('center', 'oncotree_primary_node'))
+    ) %>%
+    left_join(., dat_onco, by = "oncotree_code")
+  
+  
+  glimpse(head(dat_mut))
+  glimpse(head(dat_clin))
+  
+  return(NULL)
   
 }
+
+summarize_release_wu_brca(
+  id_mut = pull(syn_link_obj_newest, data_mutations_extended.txt),
+  id_clin_comb = pull(syn_link_obj_newest, data_clinical.txt),
+  id_clin_sample = NA,
+  id_clin_pt = NA
+)
 
 
 

@@ -17,16 +17,22 @@ library(purrr)
 library(magrittr)
 library(glue)
 library(fs)
-library(mskcc.oncotree)
-library(hash)
+library(mskcc.oncotree) # the built in oncotree_primary_node was better,
+# but we will use this if it's not populated.
 
 purrr::walk(fs::dir_ls('R'), .f = source)
 
 synLogin()
 
-# Set up a hash table for the oncotree codes:
+# Set up a table for the oncotree codes:
 dft_oncotree <- mskcc.oncotree::get_tumor_types() %>%
-  select(oncotree_code, tissue)
+  select(oncotree_code, tissue) %>%
+  # do this to temporarily match the styling of oncotree_primary_node in some
+  # of the data.
+  mutate(
+    tissue = toupper(tissue),
+    tissue = str_replace_all(tissue, pattern = " ", replacement = "_")
+  )
 
 dft_releases <- get_syn_children_df(synid_releases)
 
@@ -51,82 +57,9 @@ dft_releases <- dft_releases %>%
   unnest(df_file_ids)
 
 
-
-
-
-
-syn_link_obj <- dft_releases %>% 
-  slice(n()) %>% 
-  glimpse
-  pull(data_clinical_patient.txt) %>% 
-  get_synapse_entity_txt
-
-  
-syn_link_obj_newest <- dft_releases %>%
-  slice(1) 
-
-# Skip levels:
-#   0 for clinical
-#   4 for clinical_patient or clinical_sample
-#   0 for mutation
-
-test_clin_pt <- syn_link_obj_newest %>%
-  pull(data_clinical_patient.txt) %>%
-  get_synapse_entity_txt(., skip = 4)
-test_clin_sample <- syn_link_obj_newest %>%
-  pull(data_clinical_sample.txt) %>%
-  get_synapse_entity_txt(., skip = 4)
-test_clin_comb <- syn_link_obj_newest %>%
-  pull(data_clinical.txt) %>%
-  get_synapse_entity_txt(., skip = 0)
-test_mut <- syn_link_obj_newest %>%
-  pull(data_mutations_extended.txt) %>%
-  get_synapse_entity_txt(., skip = 0, cols_to_lower = T)
-
-test_clin_pt %>% glimpse
-test_clin_sample %>% glimpse
-test_clin_comb %>% glimpse
-test_mut %>% head %>% glimpse
-
-nam_pt <- test_clin_pt %>% names
-nam_samp <- test_clin_sample %>% names
-nam_comb <- test_clin_comb %>% names
-
-# We can create the patient file from the combined one:
-
-vec_clin_pt_vars <- c(
-  "patient_id", "sex", 'primary_race', 'secondary_race', 'tertiary_race', 
-  'ethnicity', 'birth_year', 'center', 'int_contact', 
-  'int_dod', 'year_contact', 'dead', 'year_death'
-)
-created_clin_pt <- test_clin_comb %>%
-  select(any_of(vec_clin_pt_vars)) %>%
-  distinct(.)
-waldo::compare(created_clin_pt, test_clin_pt)
-
-vec_clin_samp_vars <- c(    
-  'patient_id', 'sample_id', 'age_at_seq_report', 'oncotree_code',
-  'sample_type', 'seq_assay_id', 'cancer_type', 'cancer_type_detailed',
-  'age_at_seq_report_days', 'sample_type_detailed',
-  'seq_year', 'sample_class'
-)
-# Likewise for the sample file:
-created_clin_sample <- test_clin_comb %>%
-  select(any_of(vec_clin_samp_vars)) %>%
-  distinct(.)
-waldo::compare(created_clin_sample, test_clin_sample)
-
-# We can go the other way too:
-created_clin_comb <- left_join(
-  test_clin_sample,
-  test_clin_pt,
-  by = "patient_id"
-)
-waldo::compare(created_clin_comb, test_clin_comb)
-setdiff(
-  names(test_clin_comb),
-  names(created_clin_comb)
-)
+dft_releases_test <- dft_releases %>%
+  # 15 is an important test case because it has no clinical file.
+  slice(c(1, 15, 50, n()))
 
 summarize_release_wu_brca <- function(
   id_mut, 
@@ -136,7 +69,6 @@ summarize_release_wu_brca <- function(
   dat_onco = dft_oncotree) {
   
   dat_mut <- get_synapse_entity_txt(id_mut, skip = 0, cols_to_lower = T)
-  glimpse(dat_mut)
   
   if (is.na(id_clin_comb)) {
     dat_pt <- get_synapse_entity_txt(id_clin_pt, skip = 4)
@@ -150,74 +82,82 @@ summarize_release_wu_brca <- function(
     dat_clin <- get_synapse_entity_txt(id_clin_comb, skip = 0)
   }
   
-  dat_mut %<>% select(
-    all_of(c('tumor_sample_barcode', 'hugo_symbol', 'mutation_status')),
-    any_of('center')
-  )
+  dat_mut %<>% 
+    select(
+      all_of(
+        c('tumor_sample_barcode', 
+          'hugo_symbol', 
+          'mutation_status')
+      )
+    ) %>%
+    mutate(mutation_status = tolower(mutation_status))
   
   dat_clin %<>%
     select(
-      all_of(c('sample_id', 'patient_id', 'oncotree_code')),
-      any_of(c('center', 'oncotree_primary_node'))
-    ) %>%
-    left_join(., dat_onco, by = "oncotree_code")
+      all_of(c('sample_id', 'patient_id', 'center', 'oncotree_code')),
+      any_of(c('oncotree_primary_node'))
+    ) 
+  
+  # Needed for some older releases:
+  if (!("oncotree_primary_node" %in% names(dat_clin))) {
+    dat_clin %<>%
+      left_join(., dft_oncotree, by = "oncotree_code") %>%
+      mutate(tissue = if_else(is.na(tissue), "UNKNOWN", tissue)) %>%
+      rename(oncotree_primary_node = tissue)
+  }
+  
+  dat_mut %<>%
+    filter(hugo_symbol %in% c("BRCA1", "BRCA2")) %>%
+    filter(mutation_status %in% "somatic") %>%
+    mutate(variant = 1) %>%
+    select(-c(hugo_symbol, mutation_status))
+  
+  dat_rtn <- left_join(
+    dat_clin,
+    dat_mut,
+    by = c(sample_id = "tumor_sample_barcode")
+  )
+  
+  dat_rtn %<>%
+    mutate(variant = if_else(is.na(variant), 0, variant)) %>%
+    group_by(center, oncotree_primary_node, patient_id) %>%
+    summarize(variant = max(variant, na.rm = T), .groups = "drop") # %>%
+    # group_by(center, oncotree_primary_node) %>%
+    # summarize(
+    #   n_total = n(),
+    #   n_variant = sum(variant),
+    #   .groups = "drop"
+    # )
   
   
-  glimpse(head(dat_mut))
-  glimpse(head(dat_clin))
   
-  return(NULL)
+  # Check that oncotree_primary_node does not exist when oncotree code is missing.
+  return(dat_rtn)
   
 }
 
+# Example of doing one:
 summarize_release_wu_brca(
-  id_mut = pull(syn_link_obj_newest, data_mutations_extended.txt),
-  id_clin_comb = pull(syn_link_obj_newest, data_clinical.txt),
+  id_mut = pull(slice(dft_releases_test, 1), data_mutations_extended.txt),
+  id_clin_comb = pull(slice(dft_releases_test, 1), data_clinical.txt),
   id_clin_sample = NA,
   id_clin_pt = NA
 )
 
+# Doing them all:
+dft_rel_sums <- dft_releases_test %>%
+  mutate(
+    release_sum = purrr::pmap(
+      .l = list(
+        id_mut = data_mutations_extended.txt,
+        id_clin_comb = data_clinical.txt,
+        id_clin_sample = data_clinical_sample.txt,
+        id_clin_pt = data_clinical_patient.txt
+      ),
+      .f = summarize_release_wu_brca
+    )
+  )
 
+dft_rel_sums %<>% unnest(release_sum)
 
-synGet(syn_link_obj_newest)
-
-# get returns a function that gets the value associated with a key.
-synGet(syn_link_obj$properties$linksTo$get("targetId"))
-
-syn_link_obj$properties %>% names
-
-# example from prostate group:
-syn_nolink_obj <- synGet('syn50908661')
-syn_nolink_obj$properties %>% names
-
-
-
-
-
-if (any(stringr::str_detect(df_clin_children$name, ".csv^"))) {
-  warning("Non-CSV files unexpectedly contained in {synid_clin_data}.")
-}
-
-syn_store_in_dataraw <- function(sid) {
-  synGet(entity = sid, downloadLocation = here("data-raw"))
-}
-
-purrr::walk(.x = df_clin_children$id, 
-            .f = syn_store_in_dataraw)
-
-
-
-# slightly altered to get tibbles. 
-get_synapse_entity_data_in_csv <- function(synapse_id, 
-                                           version = NA) {
-  if (is.na(version)) {
-    entity <- synGet(synapse_id)
-  } else {
-    entity <- synGet(synapse_id, version = version)
-  }
-  
-  data <- read_csv(entity$path,
-                   show_col_types = F,
-                   progress = F)
-  return(data)
-}
+# At this point you can save it as an RDA and move into another script.

@@ -1,0 +1,243 @@
+---
+title: "wu-brca-main-genie-request"
+author: "Alex Paynter"
+date: "Updated July 25, 2023"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, include = F)
+```
+
+```{r}
+library(readr)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(magrittr)
+library(glue)
+library(fs)
+library(here)
+library(janitor) # interactive work
+
+library(ggplot2)
+library(plotly)
+library(knitr)
+library(khroma) # paul tol palettes.
+```
+
+
+```{r}
+purrr::walk(fs::dir_ls(here('R')), .f = source)
+```
+
+```{r}
+dft_releases <- readr::read_rds(file = here('data', 'releases_by_pt_nested.rds'))
+```
+
+```{r}
+count_patients <- function(dat) {
+  rtn <- dat %>%
+    group_by(center, oncotree_primary_node) %>%
+    summarize(
+      n_total = n(),
+      n_variant = sum(variant),
+      .groups = "drop"
+    )
+  
+  return(rtn)
+}
+
+# Example of this running in one row:
+# test_df <- dft_releases %>% slice(1) %>% pull(release_sum) %>% `[[`(1)
+# count_patients(test_df)
+
+dft_mut_counts <- dft_releases %>%
+  mutate(
+    sum = purrr::map(.x = release_sum, .f = count_patients)
+  ) %>%
+  select(-release_sum) %>%
+  unnest(sum)
+
+# Request was to isolate the 4 "known" impact cancers:
+# Breast (BREAST)
+# Ovarian (OVARY and OVARY/FALLOPIAN_TUBE)
+# Prostate (PROSTATE)
+# Pancreatic (PANCREAS)
+vec_known_brca <- c("BREAST", "OVARY", "OVARY/FALLOPIAN_TUBE", "PROSTATE",
+                    "PANCREAS")
+dft_mut_counts %<>%
+  mutate(known_cancers = if_else(oncotree_primary_node %in% vec_known_brca,
+                                 T, F, F)) 
+
+dft_mut_counts %<>%
+  rename(release = minor) %>%
+  mutate(
+    release_date = str_sub(minor_createdOn, 1, 10),
+    release_date = lubridate::ymd(release_date),
+    tissue = str_replace_all(oncotree_primary_node, "_", " "),
+    tissue = str_to_title(tissue)
+  ) %>%
+  select(release, release_date, center, tissue, n_total, n_variant, known_cancers)
+
+vec_cancer_types <- c(
+  "Breast", "Ovarian", "Prostate", "Pancreatic", "Other"
+)
+
+dft_mut_counts <- dft_mut_counts %>%
+  mutate(
+    cancer_groups = case_when(
+      is.na(tissue) ~ vec_cancer_types[5],
+      tissue %in% c("Ovary", "Ovary/Fallopian Tube") ~ vec_cancer_types[2],
+      tissue %in% "Breast" ~ vec_cancer_types[1],
+      tissue %in% "Prostate" ~ vec_cancer_types[3],
+      tissue %in% "Pancreas" ~ vec_cancer_types[4],
+      T ~ vec_cancer_types[5]
+    ),
+    cancer_groups = factor(cancer_groups, levels = vec_cancer_types)
+  )
+
+# We decided to look only at the consortium releases.  Save the original just in case.
+dft_mut_counts_incl_public <- dft_mut_counts
+dft_mut_counts <- dft_mut_counts %>%
+  filter(!str_detect(release, "-public$"))
+```
+
+
+```{r}
+pal <- color("bright")(7)
+
+dft_totals <- dft_mut_counts %>%
+  # Implicitly sums over center and tissue type rows:
+  group_by(release, release_date) %>%
+  summarize(
+    n_brca = sum(n_variant), 
+    n_total = sum(n_total),
+    .groups = "drop"
+  )
+
+dft_totals %<>%
+  mutate(
+    plotly_lab = glue(
+      "Release Title: {release}
+  Release Date: {release_date}
+  Total Patients: {n_total}
+  Patients with BRCA mutation: {n_brca}"
+    )
+  )
+
+gg_total_brca <- ggplot(
+  data = dft_totals,
+  aes(x = release_date, y = n_brca, text = plotly_lab, group = 1)
+  ) + 
+  geom_line(color = pal[1], linewidth = 0.75) +
+  theme_classic() +
+  labs(y = "Patients", x = "Release Date") + 
+  theme(legend.position = "bottom") +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+
+plotly_total_brca <- ggplotly(gg_total_brca, tooltip = "text")
+
+gg_total_all <- ggplot(
+  data = dft_totals,
+  aes(x = release_date, y = n_brca, text = plotly_lab, group = 1)
+  ) + 
+  geom_line(color = pal[2], linewidth = 0.75) +
+  theme_classic() +
+  labs(y = "Patients", x = "Release Date") + 
+  theme(legend.position = "bottom") +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+
+plotly_total_all <- ggplotly(gg_total_all, tooltip = "text")
+```
+
+
+
+
+
+```{r}
+dft_mut_counts_by_group <- dft_mut_counts %>% 
+  group_by(release, release_date, cancer_groups) %>%
+  summarize(n_brca = sum(n_variant), .groups = "drop")
+
+dft_mut_counts_by_group %<>%
+  # apparent data errors:
+  filter(!(release %in% c("13.2-consortium", "8.6-consortium", "14.0-public")))
+```
+
+```{r}
+library(khroma)
+colour("bright")
+gg <- ggplot(dft_mut_counts_by_group,
+       aes(x = release_date, y = n_brca, color = cancer_groups)) + 
+  geom_line() + 
+  theme_bw() + 
+  scale_color_vibrant(name = NULL) + 
+  labs(y = "Patients", x = "Release Date") + 
+  theme(legend.position = "bottom") +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+
+gg
+# dft_mut_counts_by_group %>%
+#   filter(cancer_groups %in% "Other") %>% 
+#   arrange(release_date) %>%
+#   print(n = 500)
+
+other_cancers <- dft_mut_counts %>% 
+  filter(cancer_groups %in% "Other") %>%
+  pull(tissue) %>%
+  unique %>%
+  sort %>%
+  paste(collapse = ", ")
+
+```
+
+
+
+## Introduction
+
+This report examines those with BRCA1 or BRCA2 mutations in the main GENIE database.  Several important notes:
+
+1. Only somatic mutations are included.
+2. Cancers are classified according to the oncotree primary node (Breast, Pancreatic, etc).  For any without a designation we coded them as "Other".
+3. "Release date" is currently when the object was created in synapse.  This isn't ideal - work in progress.
+4. Two releases were excluded because they seem erroneous.
+5. Line jitter:  Private and public releases are included, and retractions happen over time, so the lines jitter as they go a bit.
+
+## Accruals over time
+
+Other cancers here includes: `r other_cancers`
+
+```{r, include = T}
+gg
+```
+
+Numbers from latest release:
+
+```{r, include = T}
+dft_mut_counts_by_group %>% 
+  filter(release %in% "14.6-consortium") %>%
+  kable(.)
+```
+
+
+```{r}
+dft_pros_chk <- dft_mut_counts_by_group %>%
+  filter(cancer_groups %in% "Prostate") %>%
+  select(release, release_date, n_brca) %>%
+  arrange(release_date)
+```
+
+# Prostate numbers by release
+
+The following table is provided for possible validation with previous work (Jen Hoppe may have done something similar for the prostate group).
+
+`n_brca` is the number of participants with a BRCA1 or BRCA2 somatic mutation.
+
+```{r, include = T}
+dft_pros_chk %>% huxtable::huxtable(.)
+```
+

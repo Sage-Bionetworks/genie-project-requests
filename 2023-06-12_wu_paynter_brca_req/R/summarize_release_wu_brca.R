@@ -61,7 +61,6 @@ summarize_release_wu_brca <- function(
     summarize(variant = max(variant, na.rm = T), .groups = "drop") # %>%
   # I decided to drop this chunk so we can use the patient IDs later on,
   #   particularly to fulfill the request to look at which ones are in BPC.
-  
   # group_by(center, oncotree_primary_node) %>%
   # summarize(
   #   n_total = n(),
@@ -70,6 +69,12 @@ summarize_release_wu_brca <- function(
   # )
   
   
+  # Ready for a hideous hack?
+  # Every iteration I clear out the synapseCache so I don't run out of memory on
+  #   the AWS instance.  This deletes all the cache for other projects, which
+  #   I don't have a problem with because I usually save whatever data I need.
+  fs::dir_delete("~/.synapseCache")
+
   
   # Check that oncotree_primary_node does not exist when oncotree code is missing.
   return(dat_rtn)

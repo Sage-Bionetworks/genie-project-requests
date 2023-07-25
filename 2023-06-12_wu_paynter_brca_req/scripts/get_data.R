@@ -59,10 +59,20 @@ dft_releases <- dft_releases %>%
   ) %>%
   unnest(df_file_ids)
 
+# Excluding some releases because they didn't work with my code, and we
+#   don't really need every single one anyway.
+excl_releases <- c("8.1-public")
+dft_releases %<>%
+  filter(!minor %in% excl_releases)
 
-dft_releases_test <- dft_releases %>%
-  # 15 is an important test case because it has no clinical file.
-  slice(c(1, 15, 50, n()))
+# Temporary: Start at 8.0 to save time.
+# dft_releases %<>%
+#   slice(52:n())
+
+
+# dft_releases_test <- dft_releases %>%
+#   # 15 is an important test case because it has no clinical file.
+#   slice(c(1, 15, 50, n()))
 
 
 # Example of doing one:

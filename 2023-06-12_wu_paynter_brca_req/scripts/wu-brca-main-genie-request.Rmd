@@ -8,7 +8,8 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F, include = F)
+knitr::opts_chunk$set(echo = F, include = F, 
+                      warning = F, message = F)
 ```
 
 ```{r}
@@ -21,12 +22,19 @@ library(magrittr)
 library(glue)
 library(fs)
 library(here)
+library(lubridate)
 library(janitor) # interactive work
+
+library(broom)
 
 library(ggplot2)
 library(plotly)
 library(knitr)
 library(khroma) # paul tol palettes.
+
+library(huxtable)
+
+
 ```
 
 
@@ -39,6 +47,11 @@ dft_releases <- readr::read_rds(file = here('data', 'releases_by_pt_nested.rds')
 ```
 
 ```{r}
+
+# Some of these look like errors - 14.0 is not public at the time of this writing.
+dft_releases %<>%
+  filter(!(minor %in% c("13.2-consortium", "14.0-public")))
+
 count_patients <- function(dat) {
   rtn <- dat %>%
     group_by(center, oncotree_primary_node) %>%
@@ -76,12 +89,14 @@ dft_mut_counts %<>%
 dft_mut_counts %<>%
   rename(release = minor) %>%
   mutate(
-    release_date = str_sub(minor_createdOn, 1, 10),
-    release_date = lubridate::ymd(release_date),
+    release_date_wiki = as_date(release_date),
+    release_date_folder = str_sub(minor_createdOn, 1, 10),
+    release_date_folder = lubridate::ymd(release_date_folder),
     tissue = str_replace_all(oncotree_primary_node, "_", " "),
-    tissue = str_to_title(tissue)
+    tissue = str_to_title(tissue),
+    release_date = if_else(is.na(release_date), release_date_folder, release_date_wiki)
   ) %>%
-  select(release, release_date, center, tissue, n_total, n_variant, known_cancers)
+  select(major, release, release_date, center, tissue, n_total, n_variant, known_cancers)
 
 vec_cancer_types <- c(
   "Breast", "Ovarian", "Prostate", "Pancreatic", "Other"
@@ -107,12 +122,35 @@ dft_mut_counts <- dft_mut_counts %>%
 ```
 
 
+
+
+
+## Introduction
+
+This requests pertains the accurals over time of patients with BRCA mutations in main GENIE, and whether those patients are a part of BPC cohorts.  Full cohort criteria include:
+
+1. BRCA1 and BRCA2 mutations.
+2. Only somatic mutations.
+2. Cancers are classified according to the oncotree primary node, also known as the tissue type (Breast, Pancreatic, etc).  These are classified into two groups:
+    - Known impact - Those where BRCA mutations have a known impact.  This includes Prostate, Ovarian, Breast and Pancreatic cancers.
+    - Unknown impact - All other types (full list below).
+    
+Additionally, there are some important caveats for this report:
+
+1. We have limited to consortium releases, since this project would involve AACR members and others with access to that data.
+2. "Release date" is currently when the object was created in synapse for releases before 5.0.  For later releases we use the wiki-recorded time found at (https://www.synapse.org/#!Synapse:syn3380222/wiki/583302).  These turn out to be close so probably not a big deal (see last item).
+
+
+
+
+
+
 ```{r}
 pal <- color("bright")(7)
 
 dft_totals <- dft_mut_counts %>%
   # Implicitly sums over center and tissue type rows:
-  group_by(release, release_date) %>%
+  group_by(major, release, release_date) %>%
   summarize(
     n_brca = sum(n_variant), 
     n_total = sum(n_total),
@@ -127,117 +165,303 @@ dft_totals %<>%
   Total Patients: {n_total}
   Patients with BRCA mutation: {n_brca}"
     )
+  ) %>%
+  # just for plotting so I can re-use colors:
+  mutate(
+    major_color = readr::parse_number(major) %% 6,
+    major_color = factor(major_color)
   )
 
-gg_total_brca <- ggplot(
-  data = dft_totals,
-  aes(x = release_date, y = n_brca, text = plotly_lab, group = 1)
+
+accrual_plotter <- function(dat, y_col, plot_title, return_plotly = T) {
+  gg <- ggplot(
+    data = dat,
+    aes(x = release_date, y = .data[[y_col]], text = plotly_lab)
   ) + 
-  geom_line(color = pal[1], linewidth = 0.75) +
-  theme_classic() +
-  labs(y = "Patients", x = "Release Date") + 
-  theme(legend.position = "bottom") +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+    geom_point(aes(color = major_color), size = 1) + 
+    geom_smooth(aes(group = 1), color = "black", se = F, linewidth = 0.5) + 
+    theme_classic() +
+    labs(y = "Patients", x = "Release Date") + 
+    theme(legend.position = "bottom") +
+    scale_y_continuous(limits = c(0,NA)) + 
+    scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+    scale_color_bright() + 
+    guides(color = "none") + 
+    labs(title = plot_title) +
+    # This doesn't really work with plotly but that's OK:
+    theme(
+      plot.title.position = "plot"
+    )
+    
+  if (!return_plotly) {
+    return(gg)
+  } else {
+    plt <- ggplotly(gg, tooltip = "text")
+    return(plt)
+  }
+}
 
-plotly_total_brca <- ggplotly(gg_total_brca, tooltip = "text")
 
-gg_total_all <- ggplot(
-  data = dft_totals,
-  aes(x = release_date, y = n_brca, text = plotly_lab, group = 1)
-  ) + 
-  geom_line(color = pal[2], linewidth = 0.75) +
-  theme_classic() +
-  labs(y = "Patients", x = "Release Date") + 
-  theme(legend.position = "bottom") +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+plotly_total_brca <- accrual_plotter(
+  dat = dft_totals,
+  y_col = "n_brca", 
+  plot_title = "Patients with a BRCA mutation registered"
+)
 
-plotly_total_all <- ggplotly(gg_total_all, tooltip = "text")
+plotly_total_all <- accrual_plotter(
+  dat = dft_totals,
+  y_col = "n_total",
+  plot_title = "Total patients"
+)
 ```
+
+## Total accruals
+
+We show the number of patients and the number of patients with BRCA mutations in each figure.  These plots are semi-interactive, so feel free to mouse over them for more information about each point.
+
+```{r, include = T}
+plotly_total_all
+```
+
+
+```{r, include = T}
+plotly_total_brca
+```
+
+**Observation:**  There's clearly something going on between release 8 and 9 for the BRCA mutations and/or my code summarizing them.  For this request that's not a problem, we can estimate accrual rate using only consortium releases 9 and over (where things appear consistent), which is exactly what I'll do in the upcoming sections.
+
+
+
 
 
 
 
 
 ```{r}
-dft_mut_counts_by_group <- dft_mut_counts %>% 
-  group_by(release, release_date, cancer_groups) %>%
-  summarize(n_brca = sum(n_variant), .groups = "drop")
+dft_mut_counts_center <- dft_mut_counts %>%
+  mutate(major_number = readr::parse_number(major)) %>%
+  filter(major_number >= 9) %>%
+  # Implicitly sums over tissue type rows:
+  group_by(major, major_number, release, release_date, center, known_cancers) %>%
+  summarize(
+    n_brca = sum(n_variant), 
+    n_total = sum(n_total),
+    .groups = "drop"
+  )
 
-dft_mut_counts_by_group %<>%
-  # apparent data errors:
-  filter(!(release %in% c("13.2-consortium", "8.6-consortium", "14.0-public")))
+dft_mut_counts_center %<>%
+  mutate(
+    known_cancers_f = if_else(known_cancers, "Known_impact", "Unknown_impact", NA)
+  ) %>%
+  select(-known_cancers) 
+
+dft_mut_counts_center_total <- dft_mut_counts_center %>%
+  # Everything above except for known cancers
+  group_by(major, major_number, release, release_date, center) %>%
+  summarize(
+    n_brca = sum(n_brca), 
+    n_total = sum(n_total),
+    .groups = "drop"
+  ) %>%
+  mutate(known_cancers_f = "All")
+
+dft_mut_counts_center <- bind_rows(
+  dft_mut_counts_center_total,
+  dft_mut_counts_center
+) %>%
+  mutate(known_cancers_f = forcats::fct_inorder(known_cancers_f))
+
+vec_date_origin <- dft_mut_counts_center$release_date %>% min
+
+dft_mut_counts_center %<>%
+  mutate(
+    yrs_from_origin = time_length(
+      release_date - vec_date_origin,
+      unit = "year"
+    )
+  )
+
+dft_mut_counts_center %<>%
+  arrange(center, known_cancers_f)
+
+lm_helper <- function(x, y) {
+  dat = tibble(x = x, y = y)
+  
+  coef <- lm(y ~ x) %>%
+    broom::tidy(.) %>%
+    filter(term %in% "x") %>%
+    pull(estimate)
+  
+  if (length(coef) != 1) {
+    cli::cli_abort("lm_helper failed to return a length 1 vector")
+  }
+  
+  # Returning a tibble just sets us up to return additional things if we want to.
+  return(coef)
+  
+}
+
+dft_mut_counts_center_rates <- dft_mut_counts_center %>%
+  group_by(center, known_cancers_f) %>%
+  summarize(
+    rate = lm_helper(
+      x = yrs_from_origin,
+      y = n_brca
+    ),
+    .groups = "drop"
+  ) 
+
+vec_center_levs <- dft_mut_counts_center_rates %>%
+  filter(known_cancers_f %in% "All") %>%
+  arrange(desc(rate)) %>%
+  mutate(center = forcats::fct_inorder(center)) %>%
+  pull(center) %>%
+  levels
+
+dft_center_text <- dft_mut_counts_center_rates %>%
+  pivot_wider(
+    names_from = known_cancers_f,
+    values_from = rate
+  ) %>%
+  mutate(
+    center_lab = glue(
+      "Overall rate: {formatC(All, digits = 1, format = 'f')}
+      Known cancer rate: {formatC(Known_impact, digits = 1, format = 'f')}
+      Unknown cancer rate: {formatC(Unknown_impact, digits = 1, format = 'f')}"
+    )
+  )
+
+dft_mut_counts_center_rates <- left_join(
+  dft_mut_counts_center_rates,
+  select(dft_center_text, center, center_lab),
+  by = "center"
+) 
+
+dft_mut_counts_center %<>%
+  left_join(
+    .,
+    dft_mut_counts_center_rates,
+    by = c('center', 'known_cancers_f')
+  ) %>%
+  mutate(center = factor(center, levels = vec_center_levs))
+
+dft_center_text %<>%
+  mutate(center = factor(center, levels = vec_center_levs))
 ```
 
+
 ```{r}
-library(khroma)
-colour("bright")
-gg <- ggplot(dft_mut_counts_by_group,
-       aes(x = release_date, y = n_brca, color = cancer_groups)) + 
-  geom_line() + 
+gg_site_accrual <- ggplot(
+  data = dft_mut_counts_center,
+  aes(x = release_date, y = n_brca, 
+      color = known_cancers_f)
+) + 
+  geom_point(size = 1) + 
+  geom_smooth(
+    method = "lm",
+    se = F, 
+    linewidth = 0.5) + 
+  geom_label(data = dft_center_text, inherit.aes = F,
+             aes(x = ymd("2020-07-01"), y = 4900, label = center_lab),
+             size = 1.5, hjust = 0, vjust = 1, alpha = 0.7) + 
+  theme_classic() +
+  facet_wrap(facets = vars(center), ncol = 4) + 
+  labs(y = "Patients with BRCA mutations", x = "Release Date") + 
+  theme(legend.position = "bottom") +
+  scale_y_continuous(limits = c(0,5000)) + 
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  scale_color_bright() + 
+  guides(color = "none") + 
+  labs(title = "BRCA accruals by site") + 
+  theme(
+    plot.title.position = "plot"
+  )
+
+```
+
+## Accural by site
+
+### Figure
+
+The following image shows the accrual for (1) all BRCA mutations (2) only those associated with a cancer that has a known impact, see above and (3) those associated with any other cancer type.
+
+The rates annotated in very small text for each site.  These are from a linear model fit to consoritum releases 9.1 and later.  These are sorted by accrual rate, highest rate sites going first.  All rates are number of participants added per **year**.
+
+```{r, include = T, fig.height = 10}
+gg_site_accrual
+```
+
+**Observation:** There are clearly some sites, and particularly ones with excellent bioinformatics teams (UHN, JHU), which had a decrease in the number of BRCA cases found over time.  This could be a reflection of improved quality control (for example, reclassifying some mutations that were not truly somatic).
+
+
+```{r}
+dft_mut_totals_center <- dft_mut_counts_center %>% 
+  # forget the 14.6 consortium because it has a drop (prepare for public)
+  filter(!(release %in% "14.6-consortium")) %>%
+  group_by(center, known_cancers_f) %>%
+  arrange(major_number, release) %>%
+  slice(n()) %>%
+  ungroup(.) %>%
+  select(center, release, known_cancers_f, n_brca) %>%
+  pivot_wider(names_from = known_cancers_f, values_from = n_brca) %>%
+  arrange(desc(All))
+
+```
+
+### Table view
+
+In the following table we show the total number accumulated at the latest release for each site:
+
+```{r, include = T}
+dft_mut_totals_center %>%
+  mutate(across(.cols = everything(), .fns = as.character)) %>% 
+  huxtable(.) %>%
+  huxtable::set_align(value = "right")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+dft_date_diffs <- dft_releases %>%
+  rename(release = minor) %>%
+  mutate(
+    release_date_wiki = release_date,
+    release_date_folder = str_sub(minor_createdOn, 1, 10),
+    release_date_folder = lubridate::ymd(release_date_folder),
+    date_diff = lubridate::time_length(
+      release_date_folder - as_date(release_date_wiki),
+      unit = "day"
+    )
+  ) %>%
+  select(release, date_diff, release_date_wiki, release_date_folder) %>%
+  filter(!is.na(date_diff))
+
+gg_date_diff <- ggplot(
+  data = dft_date_diffs, aes(x = date_diff)) + 
+  stat_ecdf() + 
   theme_bw() + 
-  scale_color_vibrant(name = NULL) + 
-  labs(y = "Patients", x = "Release Date") + 
-  theme(legend.position = "bottom") +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
-
-gg
-# dft_mut_counts_by_group %>%
-#   filter(cancer_groups %in% "Other") %>% 
-#   arrange(release_date) %>%
-#   print(n = 500)
-
-other_cancers <- dft_mut_counts %>% 
-  filter(cancer_groups %in% "Other") %>%
-  pull(tissue) %>%
-  unique %>%
-  sort %>%
-  paste(collapse = ", ")
-
+  labs(x = "Folder date - Wiki date (days)")
 ```
 
 
+## Side curiousity: Folder dates vs release dates
 
-## Introduction
-
-This report examines those with BRCA1 or BRCA2 mutations in the main GENIE database.  Several important notes:
-
-1. Only somatic mutations are included.
-2. Cancers are classified according to the oncotree primary node (Breast, Pancreatic, etc).  For any without a designation we coded them as "Other".
-3. "Release date" is currently when the object was created in synapse.  This isn't ideal - work in progress.
-4. Two releases were excluded because they seem erroneous.
-5. Line jitter:  Private and public releases are included, and retractions happen over time, so the lines jitter as they go a bit.
-
-## Accruals over time
-
-Other cancers here includes: `r other_cancers`
+For releases after 5 we have a wiki page with the true release dates.  The question is "how far off are folder creation dates compared to the gold standard curated date?".  This may be relevant should we ever want to analyze early releases which may not have such dates.  Here's the CDF for the difference in dates between these:
 
 ```{r, include = T}
-gg
+gg_date_diff
 ```
 
-Numbers from latest release:
+Generally they're very close, and not that far off in either direction.  So as long as we make the wildly unlikely assumption that practices before 5.0 were similar we could probably use folder dates fairly confidently.
 
-```{r, include = T}
-dft_mut_counts_by_group %>% 
-  filter(release %in% "14.6-consortium") %>%
-  kable(.)
-```
-
-
-```{r}
-dft_pros_chk <- dft_mut_counts_by_group %>%
-  filter(cancer_groups %in% "Prostate") %>%
-  select(release, release_date, n_brca) %>%
-  arrange(release_date)
-```
-
-# Prostate numbers by release
-
-The following table is provided for possible validation with previous work (Jen Hoppe may have done something similar for the prostate group).
-
-`n_brca` is the number of participants with a BRCA1 or BRCA2 somatic mutation.
-
-```{r, include = T}
-dft_pros_chk %>% huxtable::huxtable(.)
-```
 

@@ -3,13 +3,21 @@ library(tibble)
 library(dplyr)
 library(lubridate)
 library(dft_releases)
+library(magrittr)
+library(here)
 # synLogin()
 
 # synGetWiki("syn3380222") # mmmmk nope.
 
 dft_releases <- readr::read_rds(file = here('data', 'releases_by_pt_nested.rds'))
 
-# manual input with Vim.  Lacking reproducibility but it only took 5 minutes,
+# The point of this script is adding the release date column.  The join step
+#   below will not work if we load data that already has it (say, during testing).
+if ("release_date" %in% names(dft_releases)) {
+  dft_releases %<>% select(-release_date)
+}
+
+# manual input with Vim magic.  Lacking reproducibility but it only took 5 minutes,
 #   ... which is less than it would take me to learn pulling tables from wikis.
 previous_consortium_releases <- tribble(
   ~release_version, ~upload_deadline, ~data_sequenced_before, ~release_date,

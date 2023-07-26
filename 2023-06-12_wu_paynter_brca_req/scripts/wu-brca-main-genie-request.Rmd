@@ -371,8 +371,13 @@ gg_site_accrual <- ggplot(
   theme(legend.position = "bottom") +
   scale_y_continuous(limits = c(0,5000)) + 
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-  scale_color_bright() + 
-  guides(color = "none") + 
+  scale_color_vibrant() + 
+  # scale_color_viridis_d(option = "mako", begin = 0.2, end = 0.8) + 
+  guides(
+    color = guide_legend(
+      title = NULL,
+      override.aes = list(shape = 15, linetype = 0, size = 5)
+    )) + 
   labs(title = "BRCA accruals by site") + 
   theme(
     plot.title.position = "plot"
@@ -395,7 +400,7 @@ gg_site_accrual
 **Observations:** 
 
 - There are clearly some sites, and particularly ones with excellent bioinformatics teams (UHN, JHU), which had a decrease in the number of BRCA cases found over time.  This could be a reflection of improved quality control (for example, reclassifying some mutations that were not truly somatic).
-- Several sites have no BRCA mutations detected, which may indicate a coding error somehwere.
+- Several sites have no BRCA mutations detected, which seems odd.
 
 
 ```{r}
@@ -431,8 +436,6 @@ dft_bpc_count <- dft_bpc %>% count(record_id, sort = T)
 n_bpc <- nrow(dft_bpc_count)
 n_bpc_multi_cohort <- dft_bpc_count %>% filter(n > 1) %>% nrow
 
-dft_releases %>% slice(1) %>% pull(release_sum) %>% `[[`(1) %>% pt_list_helper
-
 pt_list_helper <- function(release_summary) {
   release_summary %>%
     filter(variant %in% 1) %>%
@@ -455,7 +458,7 @@ dft_pt_list <- dft_releases %>%
 
 dft_pt_list %<>% 
   # oncotree primary node grouping here?
-  group_by(patient_id, center) %>%
+  group_by(patient_id, center, oncotree_primary_node) %>%
   arrange(major, minor) %>%
   slice(n()) %>%
   ungroup(.)
@@ -488,11 +491,13 @@ dft_pt_list %<>%
 ```{r}
 dfp_brca_known <- dft_pt_list %>%
   filter(known_cancer) %>%
-  select(center, patient_id, oncotree_codes)
+  select(center, oncotree_codes, patient_id) %>%
+  arrange(center, oncotree_codes, patient_id)
   
 dfp_brca_unknown <- dft_pt_list %>%
   filter(unknown_cancer) %>%
-  select(center, patient_id, oncotree_codes)
+  select(center, oncotree_codes, patient_id) %>%
+  arrange(center, oncotree_codes, patient_id)
 
 dfp_brca_known_bpc <- left_join(
   dfp_brca_known,
@@ -500,7 +505,8 @@ dfp_brca_known_bpc <- left_join(
   by = c(patient_id = "record_id")
 ) %>%
   filter(!is.na(cohort)) %>%
-  rename(bpc_cohort = cohort)
+  rename(bpc_cohort = cohort) %>%
+  arrange(bpc_cohort, center, oncotree_codes, patient_id)
 
 dfp_brca_unknown_bpc <- left_join(
   dfp_brca_unknown,
@@ -508,7 +514,8 @@ dfp_brca_unknown_bpc <- left_join(
   by = c(patient_id = "record_id")
 ) %>%
   filter(!is.na(cohort)) %>%
-  rename(bpc_cohort = cohort)
+  rename(bpc_cohort = cohort) %>%
+  arrange(bpc_cohort, center, oncotree_codes, patient_id)
 ```
 
 
@@ -543,13 +550,17 @@ Two patient lists are attached:
 - `brca_known_impact.csv` - Participants known to have a BRCA1 or BRCA2 mutation and a cancer where these alterations have a known impact (see above).
 - `brca_unknown_impact.csv` - Participants know to have a BRCA1 or BRCA2 mutation and a cancer where these alterations have an unknown impact.
 
-
+**IMPORTANT NOTE:**  All CSVs currently look over all releases to find participants with BRCA mutations.  This means that there may be some participants who were reclassified later and may not be suitable for selection, and the total number of patients is slightly higher than any per-release total you see above.  It may be more sensible to switch to looking at the most recent release only or something, depending on the request.
 
 ## BPC overlap
 
-To look at BPC overlap we pulled the latest consortium release for the 6 cohorts with releases.  This includes `r n_bpc` unique participants including `r n_bpc_multi_cohort` who are in more than one BPC cohort.
+To look at BPC overlap we pulled the latest consortium release for the 6 cohorts with releases.  This includes `r n_bpc` unique participants including `r n_bpc_multi_cohort` who are in more than one BPC cohort.  The participants with overlap are included in two more CSV files:
 
-**IMPORTANT NOTE:**  These lists currently look over all releases to find participants with BRCA mutations.  This means that there may be some participants who were reclassified later and may not be suitable for selection.  We should discuss this - an alternative is to use only the latest consortium release for each site.
+- `brca_known_impact_bpc.csv` 
+- `brca_unknown_impact_bpc.csv` 
+
+Each of these has a `bpc_cohort` column to show which BPC cohort they were found in.  For participants in more than one BPC release, they will have multiple rows in the output (very few participants).
+
 
 
 

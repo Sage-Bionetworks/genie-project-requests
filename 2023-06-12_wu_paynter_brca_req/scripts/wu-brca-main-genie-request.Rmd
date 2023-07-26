@@ -44,6 +44,7 @@ purrr::walk(fs::dir_ls(here('R')), .f = source)
 
 ```{r}
 dft_releases <- readr::read_rds(file = here('data', 'releases_by_pt_nested.rds'))
+dft_bpc <- readr::read_rds(file = here('data', 'bpc_participants.rds'))
 ```
 
 ```{r}
@@ -385,13 +386,16 @@ gg_site_accrual <- ggplot(
 
 The following image shows the accrual for (1) all BRCA mutations (2) only those associated with a cancer that has a known impact, see above and (3) those associated with any other cancer type.
 
-The rates annotated in very small text for each site.  These are from a linear model fit to consoritum releases 9.1 and later.  These are sorted by accrual rate, highest rate sites going first.  All rates are number of participants added per **year**.
+The rates are annotated in (very small) text for each site.  These are from a linear model fit to consoritum releases 9.1 and later.  These are sorted by accrual rate, highest rate sites going first.  All rates are number of participants added per **year**.
 
 ```{r, include = T, fig.height = 10}
 gg_site_accrual
 ```
 
-**Observation:** There are clearly some sites, and particularly ones with excellent bioinformatics teams (UHN, JHU), which had a decrease in the number of BRCA cases found over time.  This could be a reflection of improved quality control (for example, reclassifying some mutations that were not truly somatic).
+**Observations:** 
+
+- There are clearly some sites, and particularly ones with excellent bioinformatics teams (UHN, JHU), which had a decrease in the number of BRCA cases found over time.  This could be a reflection of improved quality control (for example, reclassifying some mutations that were not truly somatic).
+- Several sites have no BRCA mutations detected, which may indicate a coding error somehwere.
 
 
 ```{r}
@@ -422,8 +426,130 @@ dft_mut_totals_center %>%
 
 
 
+```{r}
+dft_bpc_count <- dft_bpc %>% count(record_id, sort = T) 
+n_bpc <- nrow(dft_bpc_count)
+n_bpc_multi_cohort <- dft_bpc_count %>% filter(n > 1) %>% nrow
+
+dft_releases %>% slice(1) %>% pull(release_sum) %>% `[[`(1) %>% pt_list_helper
+
+pt_list_helper <- function(release_summary) {
+  release_summary %>%
+    filter(variant %in% 1) %>%
+    select(patient_id, center, oncotree_primary_node)
+}
+
+# example:
+# dft_releases %>% slice(1) %>% pull(release_sum) %>% `[[`(1) %>% pt_list_helper
+
+dft_pt_list <- dft_releases %>%
+  # Same rule of thumb - releases before 9 seem strange.
+  mutate(release_num = readr::parse_number(major)) %>%
+  filter(release_num >= 9) %>%
+  filter(!(minor %in% c("14.6-consortium", "13.2-consortium", "14.0-public"))) %>%
+  mutate(
+    sum = purrr::map(.x = release_sum, .f = pt_list_helper)
+  ) %>%
+  select(-release_sum) %>%
+  unnest(sum)
+
+dft_pt_list %<>% 
+  # oncotree primary node grouping here?
+  group_by(patient_id, center) %>%
+  arrange(major, minor) %>%
+  slice(n()) %>%
+  ungroup(.)
+
+dft_pt_list %<>%
+  select(
+    center,
+    patient_id,
+    oncotree_primary_node,
+    # latest_release_seen = minor
+  )
+
+dft_pt_list %<>% 
+  group_by(patient_id, center) %>%
+  summarize(
+    known_cancer = if_else(
+      any(oncotree_primary_node %in% vec_known_brca),
+      T, F, NA
+    ),
+    unknown_cancer = if_else(
+      any(!is.na(oncotree_primary_node) & !(oncotree_primary_node %in% vec_known_brca)),
+      T, F, NA
+    ),
+    oncotree_codes = paste(oncotree_primary_node, collapse = ", "),
+    .groups = "drop"
+  )
+```
 
 
+```{r}
+dfp_brca_known <- dft_pt_list %>%
+  filter(known_cancer) %>%
+  select(center, patient_id, oncotree_codes)
+  
+dfp_brca_unknown <- dft_pt_list %>%
+  filter(unknown_cancer) %>%
+  select(center, patient_id, oncotree_codes)
+
+dfp_brca_known_bpc <- left_join(
+  dfp_brca_known,
+  dft_bpc,
+  by = c(patient_id = "record_id")
+) %>%
+  filter(!is.na(cohort)) %>%
+  rename(bpc_cohort = cohort)
+
+dfp_brca_unknown_bpc <- left_join(
+  dfp_brca_unknown,
+  dft_bpc,
+  by = c(patient_id = "record_id")
+) %>%
+  filter(!is.na(cohort)) %>%
+  rename(bpc_cohort = cohort)
+```
+
+
+```{r}
+fs::dir_create(path = here("output"))
+
+readr::write_csv(
+  x = dfp_brca_known,
+  file = here("output", "brca_known_impact.csv")
+)
+
+readr::write_csv(
+  x = dfp_brca_unknown,
+  file = here("output", "brca_unknown_impact.csv")
+)
+
+readr::write_csv(
+  x = dfp_brca_known_bpc,
+  file = here("output", "brca_known_impact_bpc.csv")
+)
+
+readr::write_csv(
+  x = dfp_brca_unknown_bpc,
+  file = here("output", "brca_unknown_impact_bpc.csv")
+)
+
+```
+
+
+Two patient lists are attached:
+
+- `brca_known_impact.csv` - Participants known to have a BRCA1 or BRCA2 mutation and a cancer where these alterations have a known impact (see above).
+- `brca_unknown_impact.csv` - Participants know to have a BRCA1 or BRCA2 mutation and a cancer where these alterations have an unknown impact.
+
+
+
+## BPC overlap
+
+To look at BPC overlap we pulled the latest consortium release for the 6 cohorts with releases.  This includes `r n_bpc` unique participants including `r n_bpc_multi_cohort` who are in more than one BPC cohort.
+
+**IMPORTANT NOTE:**  These lists currently look over all releases to find participants with BRCA mutations.  This means that there may be some participants who were reclassified later and may not be suitable for selection.  We should discuss this - an alternative is to use only the latest consortium release for each site.
 
 
 

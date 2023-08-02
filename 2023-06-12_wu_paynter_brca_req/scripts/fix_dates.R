@@ -2,7 +2,6 @@
 library(tibble)
 library(dplyr)
 library(lubridate)
-library(dft_releases)
 library(magrittr)
 library(here)
 # synLogin()

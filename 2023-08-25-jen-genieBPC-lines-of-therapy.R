@@ -43,6 +43,9 @@ sunburstR::sunburst(
 
 # So if you can get to the treatment history table on your own (not hard), you can lose the reliance on {genieBPC} for sunburst plots.
 
+# Some cases where genieBPC fails:
+
+
 
 
 

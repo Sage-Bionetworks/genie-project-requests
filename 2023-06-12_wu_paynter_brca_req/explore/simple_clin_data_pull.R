@@ -107,6 +107,45 @@ setdiff(
 )
 
 
+
+unique_non_number <- function(vec) {
+  vec <- unique(vec)
+  ind <- stringr::str_detect(vec, "^[0-9].*$", negate = T)
+  vec[ind]
+}
+
+test_pt_public %>% 
+  select(int_contact, int_dod, year_contact, dead, year_death) %>%
+  purrr::map(
+    .f = unique_non_number
+  )
+
+test_pt_consortium %>% 
+  mutate(
+    int_dod_num = as.numeric(int_dod),
+    int_contact_num = as.numeric(int_contact)
+  ) %>%
+  filter(
+    int_dod_num > int_contact_num
+  )
+
+test_pt_consortium %>% glimpse
+test_pt_consortium %>% 
+  mutate(
+    year_death_num = as.numeric(year_death),
+    year_contact_num = as.numeric(year_contact)
+  ) %>%
+  filter(
+    year_contact_num >= 89 & year_contact_num <90
+  )
+
+test_samp_public %>% 
+  select(age_at_seq_report) %>%
+  purrr::map(
+    .f = unique_non_number
+  )
+
+
 test_clin %>%
   summarize(
     across(

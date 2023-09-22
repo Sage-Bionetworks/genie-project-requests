@@ -4,7 +4,7 @@ library(purrr)
 library(rmarkdown)
 
 
-# source(here("scripts", "get_data.R")) # takes a while.
+source(here("scripts", "get_data.R")) # takes a while.
 source(here('scripts', 'fix_dates.R'))
 source(here("scripts", "get_bpc_data.R"))
 rmarkdown::render(

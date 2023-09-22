@@ -15,6 +15,7 @@ library(magrittr)
 library(glue)
 library(fs)
 library(here)
+library(ggplot2)
 
 purrr::walk(fs::dir_ls(here('R')), .f = source)
 
@@ -36,56 +37,96 @@ dft_releases %<>%
     minor_createdOn = createdOn
   )
 
+incl_releases <- c("14.0-public", "14.1-consortium")
+dft_releases %<>%
+  filter(minor %in% incl_releases)
+
 dft_releases <- dft_releases %>%
   mutate(
     df_file_ids = purrr::map(.x = minor_id, .f = add_select_file_ids)
   ) %>%
   unnest(df_file_ids)
 
-# For this we only need a recent release - any recent one will probably do.
-incl_releases <- c("14.1-consortium")
-dft_releases %<>%
-  filter(minor %in% incl_releases)
 
-test_clin <- get_synapse_entity_txt(
-  pull(slice(dft_releases, 1), data_clinical.txt), 
+test_pt_public <- get_synapse_entity_txt(
+  pull(slice(dft_releases, 1), data_clinical_patient.txt), 
+  skip = 0
+)
+
+test_samp_public <-  get_synapse_entity_txt(
+  pull(slice(dft_releases, 1), data_clinical_sample.txt), 
+  skip = 0
+)
+
+test_both_consortium <- get_synapse_entity_txt(
+  pull(slice(dft_releases, 2), data_clinical.txt), 
   skip = 0
 )
 
 
-# Example of doing one:
-# summarize_release_wu_brca(
-#   id_mut = pull(slice(dft_releases_test, 1), data_mutations_extended.txt),
-#   id_clin_comb = pull(slice(dft_releases_test, 1), data_clinical.txt),
-#   id_clin_sample = NA,
-#   id_clin_pt = NA
-# )
-
-# Doing them all:
-dft_rel_sums <- dft_releases %>%
-  mutate(
-    release_sum = purrr::pmap(
-      .l = list(
-        id_mut = data_mutations_extended.txt,
-        id_clin_comb = data_clinical.txt,
-        id_clin_sample = data_clinical_sample.txt,
-        id_clin_pt = data_clinical_patient.txt
-      ),
-      .f = summarize_release_wu_brca
-    )
-  )
-
-# Just checking to see if this is more efficient (probably)
-readr::write_rds(
-  x = dft_rel_sums,
-  file = here('data', 'releases_by_pt_nested.rds')
+test_pt_consortium <- get_synapse_entity_txt(
+  pull(slice(dft_releases, 2), data_clinical_patient.txt), 
+  skip = 0
 )
 
-toc()
+test_samp_consortium <- get_synapse_entity_txt(
+  pull(slice(dft_releases, 2), data_clinical_sample.txt), 
+  skip = 0
+)
 
-# This would be a reasonable next step, but it's way less efficient to store this way:
-# dft_rel_sums %<>% unnest(release_sum)
+#######
+# DMZ #
+#######
+
+# Difference between the combined and separated consortium files:
+setdiff(  
+  c(names(test_pt_consortium), names(test_samp_consortium)),
+  c(names(test_both_consortium))
+)
+setdiff(  
+  c(names(test_both_consortium)),
+  c(names(test_pt_consortium), names(test_samp_consortium))
+)
+# Consortium combined file has seq_date and oncotree info.. weird.
 
 
+# Columns in the consortium release but not the public release:
+setdiff(  
+  c(names(test_pt_consortium), names(test_samp_consortium)),
+  c(names(test_pt_public), names(test_samp_public))
+)
+setdiff(  
+  c(names(test_both_consortium)),
+  c(names(test_pt_public), names(test_samp_public))
+)
 
+# Columns in public release but not the consortium release:
+setdiff(
+  c(names(test_pt_public), names(test_samp_public)),
+  names(test_both_consortium)
+)
+
+
+test_clin %>%
+  summarize(
+    across(
+      .cols = everything(),
+      .fns = ~ sum(is.na(.))
+    )
+  ) %>%
+  glimpse
+
+miss_agree_mat <- test_clin %>%
+  mutate(
+    across(
+      .cols = everything(),
+      .fns = is.na
+    )
+  ) %>%
+  pct_agree_mat
+
+plot_pct_agree(
+  mat = miss_agree_mat,
+  remove_diag = F
+)
 

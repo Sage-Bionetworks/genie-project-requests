@@ -21,6 +21,19 @@ unclear_cases <- tibble(
 
 unclear_cases %<>%
   add_row(
+    date_birth = "1924-07-20", 
+    date_represented = "2015-02-28",
+    date_curation = "2020-01-07", 
+    date_process = "2023-08-01", 
+    date_release = "2023-11-20",
+    any_redact_required = F,
+    reasoning = glue(
+      "There is an observed interval after the participant's 90th birthday which needs to be masked."
+    )
+  )
+
+unclear_cases %<>%
+  add_row(
     date_birth = "2005-08-10", 
     date_represented = "2022-07-01",
     date_curation = "2023-09-01", 
@@ -114,9 +127,6 @@ print_case_bullet_points <- function(dat_row) {
   vec <- tidyr::pivot_longer(dat_row, everything()) %>%
     pull(value, name)
   
-  print(str(vec))
-  print(names(vec))
-  
   cat(glue(
     "Case: {vec['any_redact_required']}
     Birth date: {vec['date_birth']}
@@ -143,6 +153,10 @@ unclear_cases %>%
 
 unclear_cases %>%
   slice(3) %>%
+  print_case_bullet_points(.) 
+
+unclear_cases %>%
+  slice(4) %>%
   print_case_bullet_points(.) 
 
 

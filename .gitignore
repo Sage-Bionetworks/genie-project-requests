@@ -8,3 +8,7 @@
 *.csv
 *.html
 *.rds
+*.txt 
+*.seg
+
+*.DS_Store

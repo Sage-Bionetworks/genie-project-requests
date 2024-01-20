@@ -37,9 +37,16 @@ dft_releases %<>%
     minor_createdOn = createdOn
   )
 
-incl_releases <- c("14.0-public", "14.1-consortium")
+incl_releases <- c("14.1-public")
 dft_releases %<>%
   filter(minor %in% incl_releases)
+
+dft_releases
+
+gene_panels <- get_syn_children_df(dft_releases$minor_id) %>%
+  pull(name)
+
+
 
 dft_releases <- dft_releases %>%
   mutate(

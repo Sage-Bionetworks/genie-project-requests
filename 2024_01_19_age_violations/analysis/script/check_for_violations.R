@@ -9,10 +9,9 @@ dft_all <- readr::read_rds(
     here('data', 'all_dat.rds')
 )
 
-
-test_bpc <- dft_all %>% slice(1) %>% pull(dat) %>% `[[`(.,1)
-
 # function demos:
+
+# test_bpc <- dft_all %>% slice(1) %>% pull(dat) %>% `[[`(.,1)
 
 # find_violations(
 #     test_bpc,
@@ -46,10 +45,12 @@ dft_viol %>% View(.)
 
 dft_viol %>% count(cohort, dat_name, violation_type)
 
-dft_viol %>% count(cohort, dat_name, var, violation_type)
+dft_viol %>% count(cohort, var, violation_type) %>% View(.)
 
-
-
+# Affected patients.
+dft_viol %>% 
+    count(cohort, violation_type, record_id) %>%
+    count(cohort, violation_type) 
 
 # Special case:  Birth date.
 

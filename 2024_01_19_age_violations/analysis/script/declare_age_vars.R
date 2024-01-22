@@ -44,28 +44,9 @@ dft_age_vars <- tribble(
     "dx_drug_end_int_mos_4", 'month',
     "dx_drug_end_int_mos_5", 'month',
     
-    
-    "drugs_startdt_int_1", 'day',
-    "drugs_startdt_int_2", 'day',
-    "drugs_startdt_int_3", 'day', 
-    "drugs_startdt_int_4", 'day',
-    "drugs_startdt_int_5", 'day',
-    
     "dx_cpt_rep_days", 'day',
     "dx_cpt_rep_mos", 'month',
     "dx_cpt_rep_yrs", 'year', 
-    
-    "dx_drug_end_int_1", 'day',
-    "dx_drug_end_int_2", 'day',
-    "dx_drug_end_int_3", 'day',  
-    "dx_drug_end_int_4", 'day', 
-    "dx_drug_end_int_5", 'day', 
-    
-    "dx_drug_end_int_mos_1", 'month',
-    "dx_drug_end_int_mos_2", 'month',
-    "dx_drug_end_int_mos_3", 'month',
-    "dx_drug_end_int_mos_4", 'month',
-    "dx_drug_end_int_mos_5", 'month',
     
     "dx_drug_end_or_lastadm_int_1", 'day', 
     "dx_drug_end_or_lastadm_int_2", 'day',
@@ -249,8 +230,6 @@ dft_age_vars <- tribble(
     'hybrid_death_int', 'day',
     
     'dob_lastalive_int', 'day',
-    'dob_lastalive_int_mos', 'month',
-    'dob_lastalive_int_yrs', 'year',
     
     'image_ref_scan_int', 'day',
     'image_scan_int', 'day',
@@ -259,7 +238,98 @@ dft_age_vars <- tribble(
     'naaccr_first_contact_int', 'day',
     'path_proc_int', 'day',
     'tm_spec_collect_int', 'day',
-    'cpt_order_int', 'day'
+    'cpt_order_int', 'day',
+    
+    
+    # Those that only turned up in a consortium release:
+   'dx_muscprop_invasive_days', 'day',
+   'dx_muscprop_invasive_mos', 'month',
+   'dx_muscprop_invasive_yrs', 'year',
+   
+   'path_erprher_add1_int', 'day',
+   'path_erprher_add2_int', 'day',
+   'path_erprher_add3_int', 'day',
+   'path_erprher_add4_int', 'day',
+   'path_erprher_add5_int', 'day',
+   
+   'ca_age', 'year',
+   'ca_cadx_int', 'day',
+   'cpt_report_int', 'day',
+   
+   'drug_start_end_int_1', 'day',
+   'drug_start_end_int_2', 'day',
+   'drug_start_end_int_3', 'day',
+   'drug_start_end_int_4', 'day',
+   'drug_start_end_int_5', 'day',
+   
+   'drug_start_end_or_lastadm_int_1', 'day',
+   'drug_start_end_or_lastadm_int_2', 'day',
+   'drug_start_end_or_lastadm_int_3', 'day',
+   'drug_start_end_or_lastadm_int_4', 'day',
+   'drug_start_end_or_lastadm_int_5', 'day',
+   
+   'drugs_enddt_int_1', 'day',
+   'drugs_enddt_int_2', 'day',
+   'drugs_enddt_int_3', 'day',
+   'drugs_enddt_int_4', 'day',
+   'drugs_enddt_int_5', 'day',
+   
+   'drugs_lastdt_int_1', 'day',
+   'drugs_lastdt_int_2', 'day',
+   'drugs_lastdt_int_3', 'day',
+   'drugs_lastdt_int_4', 'day',
+   'drugs_lastdt_int_5', 'day',
+   
+   'dx_death_int', 'day',
+   'dx_death_int_mos', 'month',
+   'dx_death_int_yrs', 'year',
+   
+   'dx_lastalive_int', 'day',
+   'dx_lastalive_int_mos', 'month',
+   'dx_lastalive_int_yrs', 'year',
+   
+   'reg_start_end_all_int', 'day',
+   'reg_start_end_all_int_mos', 'month',
+   'reg_start_end_all_int_yrs', 'year',
+   
+   'reg_start_end_any_int', 'day',
+   'reg_start_end_any_int_mos', 'month',
+   'reg_start_end_any_int_yrs', 'year',
+   
+   'reg_start_end_or_lastadm_all_int', 'day',
+   'reg_start_end_or_lastadm_all_mos', 'month',
+   'reg_start_end_or_lastadm_all_yrs', 'year', 
+   
+   'reg_start_end_or_lastadm_any_int', 'day',
+   'reg_start_end_or_lastadm_any_mos', 'month',
+   'reg_start_end_or_lastadm_any_yrs', 'year',
+   
+   'tt_pfs_i_dx_days', 'day',
+   'tt_pfs_i_dx_mos', 'month',
+   'tt_pfs_i_dx_yrs', 'year',
+   
+   'tt_pfs_i_dx_mixed_days', 'day',
+   'tt_pfs_i_dx_mixed_mos', 'month',
+   'tt_pfs_i_dx_mixed_yrs', 'year',
+   
+   'tt_pfs_m_dx_days', 'day',
+   'tt_pfs_m_dx_mos', 'month',
+   'tt_pfs_m_dx_yrs', 'year',
+   
+   'tt_pfs_m_dx_mixed_days', 'day',
+   'tt_pfs_m_dx_mixed_mos', 'month',
+   'tt_pfs_m_dx_mixed_yrs', 'year',
+   
+   'dx_to_dmets_heme_days', 'day',
+   'dx_to_dmets_heme_mos', 'month',
+   'dx_to_dmets_heme_yrs', 'year',
+   
+   'dx_to_dmets_trunk_days', 'day',
+   'dx_to_dmets_trunk_mos', 'month',
+   'dx_to_dmets_trunk_yrs', 'year',
+   
+   'tt_first_index_ca', 'day'
+   
 )
 
 
@@ -271,9 +341,19 @@ if (
     cli::cli_abort("typo in some units - or some missing units")
 }
 
+if (any(duplicated(dft_age_vars$var))) {
+    cli::cli_abort("duplicated age variable declared - need to fix.")
+}
+
+
 readr::write_rds(
     dft_age_vars,
     here('data', 'age_vars.rds')
+)
+
+readr::write_csv(
+    dft_age_vars,
+    here('data', 'prissm_age_vars.csv')
 )
 
 # To watch:

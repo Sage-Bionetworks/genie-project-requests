@@ -32,6 +32,7 @@ dft_var <- dft_all %>%
     select(cohort, dat_name, var_dat) %>%
     unnest(var_dat)
 
+# Technically this gets unique combinations of variable and type.
 dft_unique_var <- dft_var %>%
     group_by(var, type) %>%
     slice(1) %>%
@@ -42,35 +43,32 @@ obvious_time_strings <- c(
     '_days', '_mos', '_yrs'
 )
 
-dft_unique_var %>%
-    filter(
-        str_detect(
-            var,
-            paste(obvious_time_strings, collapse = "|")
-        )
-    ) %>%
-    pull(var) %>% 
-    unique
- 
-
 dft_age_vars <- readr::read_rds(here('data', 'age_vars.rds'))
 
+# A helper printout to discover variables that look to be 
+# time related but are not yet declared in our file.
+dft_unique_var %>%
+    mutate(
+        looks_like_time_string = str_detect(
+            var,
+            paste(obvious_time_strings, collapse = "|")
+        ),
+        not_in_declared_vars = !(var %in% dft_age_vars$var)
+    ) %>%
+    filter(
+        looks_like_time_string & not_in_declared_vars
+    ) %>%
+    arrange(cohort) %>%
+    View(.)
+ 
+# A much greater burden:  look through all the variables to see if any appear
+#   to be agey.
 dft_unique_var %>%
     filter(!(var %in% dft_age_vars$var)) %>%
     View(.)
 
 
-dft_chelsea_age_var <- readr::read_csv(
-    '/Users/apaynter/Downloads/age_variables_public.csv'
-) %>%
-    select(var = `Variable Name`)
 
-setdiff(
-    dft_chelsea_age_var$var,
-    dft_age_vars$var
-)
 
-setdiff(
-    dft_age_vars$var,
-    dft_chelsea_age_var$var
-)
+# Check that 
+

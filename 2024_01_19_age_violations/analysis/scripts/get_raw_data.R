@@ -16,11 +16,32 @@ dft_datasets_to_get <- tribble(
     "tm_level_dataset.csv", "tm"
 )
 
+# each folder below is the clinical data release
 dft_folders <- tibble::tribble(
     ~cohort, ~synid,
-    "CRC", "syn39802279", # 2.0 public
-    "NSCLC", "syn27245047", # 2.0 public 
- #   "NSCLCv2.1-consortium",
+    # public releases:
+    "CRC_2.0-public", "syn39802279",
+    "NSCLC_2.0-public", "syn27245047",
+    
+    # consortium releases:
+    "BLADDER_1.1-consortium", "syn28495599",
+    "BLADDER_1.2-consortium", "syn53018574",
+    
+    'CRC_1.1-consortium', 'syn24166685',
+    'CRC_1.2-consortium', 'syn26046784',
+    
+    'NSCLC_1.1-consortium', 'syn21459571',
+    "NSCLC_2.1-consortium", 'syn25982471',
+    
+    'BrCa_1.1-consortium', 'syn26253353',
+    'BrCa_1.2-consortium', 'syn39802381',
+    
+    'PANC_1.1-consortium', 'syn27244194',
+    'PANC_1.2-consortium', 'syn50612197',
+    
+    'Prostate_1.1-consortium', 'syn28495574',
+    'Prostate_1.2-consortium', 'syn50612195'
+    
 )
 
 dft_datasets <- dft_folders %>%

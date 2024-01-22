@@ -12,16 +12,18 @@ dft_all <- readr::read_rds(
 
 test_bpc <- dft_all %>% slice(1) %>% pull(dat) %>% `[[`(.,1)
 
-find_violations(
-    test_bpc,
-    dft_vio_cond,
-    var_to_check = "dob_ca_dx_days"
-) 
+# function demos:
 
-find_all_violations(
-    test_bpc,
-    dft_vio_cond,
-) 
+# find_violations(
+#     test_bpc,
+#     dft_vio_cond,
+#     var_to_check = "dob_ca_dx_days"
+# ) 
+
+# find_all_violations(
+#     test_bpc,
+#     dft_vio_cond,
+# ) 
 
 dft_all %<>%
     mutate(
@@ -36,6 +38,32 @@ dft_all %<>%
         )
     )
 
-dft_all %>%
+dft_viol <- dft_all %>%
     select(cohort, dat_name, viol) %>%
-    unnest(viol)
+    unnest(viol) 
+
+dft_viol %>% View(.)
+
+dft_viol %>% count(cohort, dat_name, violation_type)
+
+dft_viol %>% count(cohort, dat_name, var, violation_type)
+
+
+
+
+# Special case:  Birth date.
+
+dft_all %>%
+    filter(dat_name %in% "pt") %>%
+    mutate(
+        bd_lt_1935 = purrr::map(
+            .x = dat,
+            .f = \(x) {
+                select(x, record_id, birth_year) %>%
+                    filter(birth_year < 1935)
+            }
+        )
+    ) %>%
+    select(cohort, bd_lt_1935) %>%
+    unnest(bd_lt_1935)
+    

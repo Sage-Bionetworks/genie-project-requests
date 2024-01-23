@@ -13,7 +13,18 @@ dft_datasets_to_get <- tribble(
     "pathology_report_level_dataset.csv", "path",
     "patient_level_dataset.csv", "pt",
     "regimen_cancer_level_dataset.csv", "reg",
-    "tm_level_dataset.csv", "tm"
+    "tm_level_dataset.csv", "tm",
+    
+    # Add these back in to test "sample" versions.
+    # "cancer_level_dataset_index_sample.csv", "ca_ind",
+    # "cancer_level_dataset_non_index_sample.csv", "ca_non_ind",
+    # "cancer_panel_test_level_dataset_sample.csv", "cpt",
+    # "imaging_level_dataset_sample.csv", "img",
+    # "med_onc_note_level_dataset_sample.csv", "med_onc",
+    # "pathology_report_level_dataset_sample.csv", "path",
+    # "patient_level_dataset_sample.csv", "pt",
+    # "regimen_cancer_level_dataset_sample.csv", "reg",
+    # "tm_level_dataset_sample.csv", "tm",
 )
 
 # each folder below is the clinical data release
@@ -30,8 +41,11 @@ dft_folders <- tibble::tribble(
     'CRC_1.1-consortium', 'syn24166685',
     'CRC_1.2-consortium', 'syn26046784',
     
-    'NSCLC_1.1-consortium', 'syn21459571',
+    'NSCLC_1.1-consortium', 'syn22418966',
     "NSCLC_2.1-consortium", 'syn25982471',
+    # not really sure what this is but uncomment above to check.
+    # 'NSCLC_2.1_consortium_clinical_data_sample',
+    # 'syn26465437',
     
     'BrCa_1.1-consortium', 'syn26253353',
     'BrCa_1.2-consortium', 'syn39802381',
@@ -77,7 +91,14 @@ dft_datasets %<>%
         )
     )
 
-# dft_datasets %>% select(cohort, save_name, dat)
+dft_datasets %>% 
+    mutate(
+        nrow_grabbed = purrr::map_dbl(
+            .x = dat,
+            .f = nrow
+        )
+    ) %>% 
+    select(cohort, dat_name, nrow_grabbed) %>% View(.)
 
 write_rds(
     dft_datasets,

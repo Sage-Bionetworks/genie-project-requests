@@ -11,7 +11,10 @@ dft_vio_cond <- bind_rows(
 )
 
 days_per_year = 365.25
-months_per_year = days_per_year/12
+# Note:  Months per year might seem odd.  But this has to be the case if we have
+#   365.25 days per year and 30.4 days per month.  Empirically this seems to allow
+#   us to backtrace what the stats team did, so here we are.
+months_per_year = 12.0148
 
 # In the future it would be better to store the conditions in a table and join.
 # With only two types of conditions this is probably OK for today.

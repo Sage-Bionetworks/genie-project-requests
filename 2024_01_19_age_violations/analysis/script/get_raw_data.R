@@ -54,7 +54,7 @@ dft_folders <- tibble::tribble(
     'PANC_1.2-consortium', 'syn50612197',
     
     'Prostate_1.1-consortium', 'syn28495574',
-    'Prostate_1.2-consortium', 'syn50612195'
+    'Prostate_1.2-consortium', 'syn50612196'
     
 )
 

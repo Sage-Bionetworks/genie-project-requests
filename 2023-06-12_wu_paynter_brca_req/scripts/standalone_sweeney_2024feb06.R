@@ -89,6 +89,13 @@ dft_rel_sums <- dft_releases %>%
 # dft_var_ct %>% count(minor, oncotree_primary_node, patient_id, sort = T)
 # yes
 
+
+
+
+
+
+# Now we just do the analysis, get them numbers:
+
 dft_var_ct <- dft_rel_sums %>%
   select(minor, release_sum) %>%
   unnest(release_sum)
@@ -124,16 +131,6 @@ dft_var_ct %>%
     values_from = pt_with_variant
   )
 
-# Just checking to see if this is more efficient (probably)
-readr::write_rds(
-  x = dft_rel_sums,
-  file = here('data', 'releases_by_pt_nested.rds')
-)
-
-toc()
-
-# This would be a reasonable next step, but it's way less efficient to store this way:
-# dft_rel_sums %<>% unnest(release_sum)
 
 
 

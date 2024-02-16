@@ -10,5 +10,6 @@
 *.rds
 *.txt 
 *.seg
+*.xlsx
 
 *.DS_Store

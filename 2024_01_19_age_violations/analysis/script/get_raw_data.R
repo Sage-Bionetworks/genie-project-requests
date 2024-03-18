@@ -39,11 +39,11 @@ dft_folders <- tibble::tribble(
     "BLADDER_1.2-consortium", "syn53018574",
     
     'CRC_1.1-consortium', 'syn24166685',
-    'CRC_1.2-consortium', 'syn26046784',
+    # 'CRC_1.2-consortium', 'syn26046784',
     'CRC_1.3-consortium', 'syn53452589',
     
     'NSCLC_1.1-consortium', 'syn22418966',
-    "NSCLC_2.1-consortium", 'syn25982471',
+    # "NSCLC_2.1-consortium", 'syn25982471',
     'NSCLC_2.2-consortium', 'syn53452657',
     # not really sure what this is but uncomment above to check.
     # 'NSCLC_2.1_consortium_clinical_data_sample',

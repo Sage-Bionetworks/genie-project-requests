@@ -42,8 +42,8 @@ dft_folders <- tibble::tribble(
   
   # For the public release files I'm pulling the consortium releases too.  
   # We can filter duplicates later on.
-  "CRC", "syn26046784", # 1.2 consortium 
-  "NSCLC", "syn25982471", # 2.1 consortium.
+  "CRC", "syn53463635", # 1.3 consortium 
+  "NSCLC", "syn53463552", # 2.2 consortium.
   "NSCLC", 'syn22418966', # 1.1 consortium - just because I don't understand the numbering.
   
   "PANC", "syn50612197", # 1.2 consortium

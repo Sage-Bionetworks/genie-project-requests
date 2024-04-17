@@ -84,7 +84,7 @@ summarize_release_egfr_arpah <- function(
     # Every iteration I clear out the synapseCache so I don't run out of memory on
     #   the AWS instance.  This deletes all the cache for other projects, which
     #   I don't have a problem with because I usually save whatever data I need.
-    # fs::dir_delete("~/.synapseCache")
+    fs::dir_delete("~/.synapseCache")
     
     return(dat_rtn)
 

@@ -74,15 +74,16 @@ nsclc_oncotree_codes <- mskcc.oncotree::get_tumor_types() %>%
 # Example of doing one:
 sum_rtn <- summarize_release_egfr_arpah(
     id_mut = pull(slice(dft_releases, 11), data_mutations_extended.txt),
-    id_clin_comb = NA,
+    #id_clin_comb = NA,
     id_clin_sample =  pull(slice(dft_releases, 11), data_clinical_sample.txt),
-    id_clin_pt = pull(slice(dft_releases, 11), data_clinical_patient.txt),
+#    id_clin_pt = pull(slice(dft_releases, 11), data_clinical_patient.txt),
     protein_symbols = mut_prot_symbols,
     samp_oncotree_codes = nsclc_oncotree_codes
 )
 
 # Doing them all:
 dft_rel_sums <- dft_releases %>%
+    # slice(c(1,5,6)) %>% # temporary.
     mutate(
         release_sum = purrr::map2(
             .x = data_mutations_extended.txt,
@@ -95,7 +96,6 @@ dft_rel_sums <- dft_releases %>%
                     samp_oncotree_codes = nsclc_oncotree_codes
                 )
             }
-            )
         )
     )
 

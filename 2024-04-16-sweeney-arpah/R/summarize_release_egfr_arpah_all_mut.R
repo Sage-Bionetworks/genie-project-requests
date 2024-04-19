@@ -1,11 +1,8 @@
 
-summarize_release_egfr_arpah <- function(
+summarize_release_egfr_arpah_all_mut <- function(
         id_mut, 
-        id_clin_sample, 
-        protein_symbols,
+        id_clin_sample,
         samp_oncotree_codes) {
-    
-    protein_regex <- paste(paste0("^p.",  protein_symbols, "$"), collapse = "|")
     
     dat_mut <- get_synapse_entity_txt(id_mut, skip = 0, cols_to_lower = T)
     
@@ -28,6 +25,7 @@ summarize_release_egfr_arpah <- function(
             all_of(
                 c('tumor_sample_barcode',
                   'consequence',
+                  'exon_number',
                   'hugo_symbol',
                   'hgvsp_short',
                   'hgvsc',
@@ -39,15 +37,7 @@ summarize_release_egfr_arpah <- function(
     dat_mut %<>%
         filter(hugo_symbol %in% "EGFR") %>%
         # select only non-synonymous variants:
-        filter(!(consequence %in% "synonymous_variant")) %>%
-        filter(str_detect(hgvsp_short, protein_regex))
-    
-    # This is quite odd, but some people have more than one row for the same
-    #  protein change.  We can filter these out:
-    dat_mut %<>%
-        group_by(tumor_sample_barcode, hugo_symbol, hgvsp_short) %>%
-        slice(1) %>%
-        ungroup(.)
+        filter(!(consequence %in% "synonymous_variant"))
     
     dat_sample %<>%
         filter(oncotree_code %in% samp_oncotree_codes) %>%
@@ -76,7 +66,7 @@ summarize_release_egfr_arpah <- function(
         select(
             # primary keys of return:
             sample_id, hgvsp_short,
-            patient_id, hgvsp_short, institution,
+            patient_id, institution,
             everything()
         )
         
@@ -84,7 +74,7 @@ summarize_release_egfr_arpah <- function(
     # Every iteration I clear out the synapseCache so I don't run out of memory on
     #   the AWS instance.  This deletes all the cache for other projects, which
     #   I don't have a problem with because I usually save whatever data I need.
-    # fs::dir_delete("~/.synapseCache")
+    fs::dir_delete("~/.synapseCache")
     
     return(dat_rtn)
 

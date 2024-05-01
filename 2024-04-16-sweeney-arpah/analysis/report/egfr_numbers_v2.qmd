@@ -28,15 +28,54 @@ purrr::walk(.x = fs::dir_ls(here('R')), .f = source) # also loads lots of packag
 
 ```{r}
 dft_rel <- readr::read_rds(
-    here('data', 'release_sum_nested.rds')
+    here('data', 'release_sum_nested_all_mut.rds')
 )
+```
+
+
+```{r}
+# We didn't filter the mutations at all, have to do it now.
+mut_prot_symbols <- c("729_761del",
+    "G719.*",
+    "L858R",
+    "L861Q",
+    "S768I",
+    "T790M",
+    "A763_Y764insFQEA")
+
+mut_regex <- paste(paste0("^p.", mut_prot_symbols, "$"), collapse = "|")
+
+filter_muts <- function(dat) {
+    dat %>%
+        mutate(
+            alt_desc = case_when(
+                exon_number %in% "19/28" & consequence %in% "inframe_deletion" ~ "Exon 19 inframe del",
+                str_detect(hgvsp_short, "p.G719") ~ "p.G719Xaa",
+                str_detect(hgvsp_short, mut_regex) ~ hgvsp_short,
+                T ~ NA_character_
+            )
+        ) %>%
+        filter(!is.na(alt_desc))
+}
+
+# filter_muts((dft_rel %>% slice(1) %>% pull(release_sum) %>% `[[`(.,1)))
+            
+
+dft_rel %<>%
+    mutate(
+        release_sum = purrr::map(
+            .x = release_sum,
+            .f = filter_muts
+        )
+    )
+            
 ```
 
 ## Request
 
 Count the number of people who have a metastatic non-small cell lung cancer sample which has an EGFR mutation in the following list:
 
-- 729_761del
+- 729_761del **Major update is here - this is now fixed**
 - G719Xaa (Xaa = anything, like A or C or T)
 - L858R
 - L861Q
@@ -136,13 +175,13 @@ dft_site_sum <- dft_site %>%
     ) %>% 
     arrange(desc(cases_per_year))
 # Text output for email:
-# dft_site_sum %>%
-#     arrange(desc(cases_per_year)) %>%
-#     mutate(output_str = paste0(institution, " (", round(cases_per_year), " per year, ",
-#                                most_recent_cases, " expected in 16.1-public)"))%>%
-#     pull(output_str) %>%
-#     cat(., sep = "\n")
-#             
+dft_site_sum %>%
+    arrange(desc(cases_per_year)) %>%
+    mutate(output_str = paste0(institution, " (", round(cases_per_year), " per year, ",
+                               most_recent_cases, " expected in 16.1-public)"))%>%
+    pull(output_str) %>%
+    cat(., sep = "\n")
+
 
 
 
@@ -194,7 +233,7 @@ dft_mut_sum <- dft_rel %>%
             .x = release_sum,
             .f = \(d) {
                 d %>% 
-                    group_by(hgvsp_short) %>% 
+                    group_by(alt_desc) %>% 
                     sum_help
             }
         )
@@ -203,13 +242,13 @@ dft_mut_sum <- dft_rel %>%
     unnest(sum) 
 
 dft_req_table <- dft_mut_sum %>%
-    select(minor, hgvsp_short, n_pt) %>%
-    tidyr::complete(minor, hgvsp_short, fill = list(n_pt = 0)) %>%
+    select(minor, alt_desc, n_pt) %>%
+    tidyr::complete(minor, alt_desc, fill = list(n_pt = 0)) %>%
     pivot_wider(
         names_from = minor,
         values_from = n_pt
     ) %>%
-    arrange(hgvsp_short)
+    arrange(alt_desc)
 ```
 
 
@@ -231,7 +270,7 @@ dft_mut_sum_vicc <- dft_rel %>%
             .f = \(d) {
                 d %>% 
                     filter(institution %in% "VICC") %>%
-                    group_by(hgvsp_short) %>% 
+                    group_by(alt_desc) %>% 
                     sum_help
             }
         )
@@ -241,13 +280,13 @@ dft_mut_sum_vicc <- dft_rel %>%
 
 
 dft_req_table_vicc <- dft_mut_sum_vicc %>%
-    select(minor, hgvsp_short, n_pt) %>%
-    tidyr::complete(minor, hgvsp_short, fill = list(n_pt = 0)) %>%
+    select(minor, alt_desc, n_pt) %>%
+    tidyr::complete(minor, alt_desc, fill = list(n_pt = 0)) %>%
     pivot_wider(
         names_from = minor,
         values_from = n_pt
     ) %>%
-    arrange(hgvsp_short)
+    arrange(alt_desc)
 
 
 ```
@@ -258,7 +297,7 @@ dft_req_table_vicc <- dft_mut_sum_vicc %>%
 ## Details
 
 - Lymph metastases were not included.
-- Some of the mutations in the spreadsheet sent did not return any hits (e.g. 729_761del and A763_Y764insFQEA).  Let me know ASAP if that sounds wrong.
+- Some of the mutations in the spreadsheet sent did not return any hits (just  A763_Y764insFQEA now).  Let me know ASAP if that sounds wrong.
 - The spreadsheet also had a note about an exclusion mutation.  That is currently not a part of this analysis.
 - Sample numbers are not shown (**patients** are shown).  They tend to differ by about 10% and can be pulled up if needed.
 

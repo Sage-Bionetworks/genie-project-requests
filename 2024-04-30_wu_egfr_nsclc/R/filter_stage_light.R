@@ -3,7 +3,7 @@
 #' @description Try desperately to make something sensible out of this mess.
 #' 
 #' @param dat The cancer index dataset, or at least having those variables.
-filter_stage_messy <- function(
+filter_stage_light <- function(
     dat,
     excluded_best_ajcc_stage_cd = c(
       "1A", "1A1", "1A2", "1A3",
@@ -56,6 +56,7 @@ filter_stage_messy <- function(
   dat %<>%
     mutate(
       in_excluded_stage = case_when(
+        stage_dx %in% "Stage II" ~ F, # special case.
         .e_best_ajcc_stage_cd & best_ajcc_stage_cd %in% excluded_best_ajcc_stage_cd ~ T,
         .e_best_ajcc_stage_cd ~ F,
         .e_ca_path_group_stage & ca_path_group_stage %in% excluded_ca_path_group_stage ~ T,

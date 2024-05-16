@@ -5,6 +5,9 @@ purrr::walk(.x = fs::dir_ls('R'), .f = source)
 dft_maf <- readr::read_tsv(
   here('data-raw', 'genomic', 'data_mutations_extended.txt')
 )
+dft_cpt <- readr::read_csv(
+  here('data-raw', 'cancer_panel_test_level_dataset.csv')
+)
 
 
 # Define the mutation filtering:
@@ -43,6 +46,9 @@ dft_maf_mut %<>%
     alterations = paste(sort(unique(alt_desc)), collapse = ", ")
   )
 
+dft_maf_mut <- dft_cpt %>% 
+  select(cpt_genie_sample_id, record_id) %>%
+  left_join(dft_maf_mut, ., by = "cpt_genie_sample_id")
 
 readr::write_rds(
   dft_maf_mut,

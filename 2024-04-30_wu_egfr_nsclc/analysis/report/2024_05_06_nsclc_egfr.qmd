@@ -1,0 +1,127 @@
+---
+title: "NSCLC, EGFR, Osimertinib, Progression"
+subtitle: "Reqested by Tony Wu"
+author: "Alex Paynter"
+date: "`r Sys.Date()`"
+output:
+  quarto::quarto_html:
+editor_options:
+  quarto:
+    chunk_output_type: console
+  chunk_output_type: console
+format:
+  html:
+    embed-resources: true
+    toc: true
+    theme: sandstone 
+execute:
+  echo: false
+  include: false
+  warning: false
+  message: false
+  fig.width: 7
+  fig.height: 5
+---
+
+```{r}
+
+library(purrr); library(fs); library(here)
+purrr::walk(.x = fs::dir_ls(here('R')), .f = source)
+```
+
+
+## Introduction
+
+This report assesses the feasibility of a study of EGFR NSCLC patients.  To do this, we will look at the NSCLC v3.1 BPC cohort (n = 3549), which detailed information we can assess inclusion criteria with.  The real goal is to estimate how many we have in the Main GENIE NSCLC cohort (n = 31,103).
+
+```{r}
+dft_cohort_m1 <- readr::read_rds(
+  here('data', 'table_method_1.rds')
+)
+dft_cohort_m2 <- readr::read_rds(
+  here('data', 'table_method_2.rds')
+)
+
+cohort_process_help <- function(coh) {
+  coh %<>%
+    mutate(
+      n = purrr::map_dbl(
+        .x = dat,
+        .f = nrow
+      )
+    ) %>%
+    mutate(
+      naive_projection = round(n * 31103/3549),
+      naive_projection = if_else(row_number() == 1, NA_real_, naive_projection)
+    )
+  
+  coh %<>%
+    select(-dat) %>%
+    rename(
+      `Step (cumulative)` = message,
+      `n (BPC)` = n,
+      `n (proj main)` = naive_projection
+    )
+  
+  return(coh)
+}
+
+dfp_cohort_m1 <- dft_cohort_m1 %>%
+  cohort_process_help(.) %>%
+  flextable(.) %>%
+  autofit(.)
+
+dfp_cohort_m2 <- dft_cohort_m2 %>%
+  cohort_process_help(.) %>%
+  flextable(.) %>%
+  autofit(.)
+```
+
+
+## Filtering
+
+Each row in the table below builds on the previous one.  For example, the row discussing EGFR mutations is really the number with EGFR mutation AND confirmed to be stage 1B-3A at diagnosis.  The projection factor is just a flat sample size ratio (about 8.7x), which could skew our estimates.  This is the number of cases we would expect to have if we curated all the patients in main GENIE, including those already done in BPC.  Therefore, the minimum number of new curations which would need to be done is the difference between the right two columns.
+
+
+```{r}
+#| include: true
+dfp_cohort_m1
+```
+
+## Details/Alternatives
+
+In the above table, alternate decisions could be made in several steps.  Below we write a short text explanation of what was done, and note alternative that seem worth exploring.
+
+- **Stage I-III at diagnosis** - Uses `stage_dx` from the cancer index dataset.  
+- **Confirmed 1B-3A at dx** - Use the best available information for detailed staging, and only include people who we can confirm are at the right stage.  Tumor registry data (`best_ajcc_stage_cd`) gets priority, and if that is not available then we use curated pathological staging `ca_path_group_stage`.  If that is not available, then they are excluded.   This just follows the lead of the data guide documenation on `stage_dx`.  Stage II people are included regardless of further information availability.   Some curated variables were sadly absent and may be better substitutes, but the majority of participants can be categorized with the tumor registry variables alone.
+  - *Alternative 1*:  Skip this entirely and leave the filtering at Stage I-III.  This would leave people who we have good reason to bin as Stage 1A in.
+  - *Alternative 2*:  Only remove people who are known (same variables) to be Stage <1A or >3B.  This would leave people in who are Stage I-III but have no further detail.
+- **EGFR L858R or exon 19 inframe del (ever)** - Create a list of rows in the MAF file `HGVSp_Short = p.L858R` or with an exon 19 mutation with `Consequence` indicating an inframe deletion.  Filter the data down to those people.  We do not look at timing currently (e.g. if the test was done after Osi started).
+  - *Alternative 1:* Skip this, because these mutations are the exact ones required to take Osi.  We also may not have all the genomic data on each subject (just panel tests, filtered), so it's a toss up whether we're getting more false negatives doing this or more false positives by not.
+- **Cases with Osimertinib ever** - Filter to `record_id` and `ca_seq` which have a `regimen_drugs` entry matching regex "Osimertinib".  This includes multi-drug regimens.
+- **Osi in adjuvant (confirmed with excision record)** - For all those with a pathology dataset record indicating a surgical exision, record the time.  Check the list above of Osi uses, and make sure that Osi was started after the excision.  Radiation was ignored after reading the Osi label (which indicates that a tumor resection is the relevant definition of adjuvant).
+  - *Alternative 1"* Skip this, because adjuvant is required for Osi, and our ability to determine adjuvant is imperfect (compared to the treating physician).
+- **Progressed (I and M) after adjuvant osi** - The PFS variables in the data only address people who develop metastasis, which doesn't help us.  To do this we created an "events" dataset which notes any time that a med onc notes progression, anytime an imaging report notes progression, or any death events.  Then we filter those down to only events after (not on) the start of Osi for each Osi use case.  People with both an imaging and med onc progression (or death) after are marked as progressed.  Those who don't meet those criteria are not.
+  - *Alternatives* - The usual PRISSMM alternatives, probably just "I or M" is worth noting.  I and M is the best surrogate for OS (obvious, but confirmed) and I or M is the most sensitive.
+- **One or more regimens after progression** - Take the time of progression above and check if any regimens were started on or after the progression time.
+
+## Projection
+
+Above we've used a simple ratio of the sample sizes of the cohorts (NSCLC main / NSCLC BPC).  This may be inaccurate if the distributions are different between the cohorts in rates of Osi use, EGFR mutations, age, progression, etc.  Here are some thoughts about two things we could compare between the two cohorts:
+
+- Diagnosis year.  We don't have this in main GENIE, but we do have sequencing year.  If anything, I would expect BPC NSCLC to under-represent Osi use compared to main GENIE, because the cutoff for the BPC NSCLC is in 2021, and the drug was only approved in this setting at the end of 2020.  Main GENIE goes much later than that.
+- Eligible EGFR mutation rates.  As a quick check, the rate of patients with any EGFR mutation among primary (non-met) samples is:
+  - 23.8% in NSCLC BPC 3.1
+  - 23.9% in NSCLC BPC 3.1
+  
+So in summary the rates of EGFR mutation look near-identical and the sequencing years look like they would be better-if-different in main GENIE compared with BPC.  So I would guess that our naive projections are underestimates.
+
+
+## Discussion
+
+A few caveats and comments:
+
+- Some of the regimens after progression and from the first adjuvant osi use are **more** Osi (osi is part of or the entire post-progression regimen).
+- Some people have multiple cancers, which is a common exclusion criterion in trials.
+- We are not currently checking if people are metastatic when they receive osi.  If they're metastatic this might not fit the request (and this CAN be checked using BPC data).
+

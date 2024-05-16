@@ -26,16 +26,14 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Stage I-III at diagnosis", .)
 
 
 
-dft_cohort %<>% filter_stage_heavy(.) # separate function
+dft_cohort %<>% filter_stage_light(.) # separate function
 
-dft_flow %<>% flow_record_helper(dft_cohort, "Confirmed 1B-3A at dx", .)
-
-
+dft_flow %<>% flow_record_helper(dft_cohort, "Exclude those confirmed to be <1B or >3A at dx", .)
 
 
-dft_mut <- readr::read_rds(here('data', 'samples_with_mut.rds'))
-dft_cohort %<>% filter(record_id %in% dft_mut$record_id)
-dft_flow %<>% flow_record_helper(dft_cohort, "EGFR L858R or exon 19 inframe del (ever)", .)
+
+
+
 
 
 
@@ -63,28 +61,25 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Cases with Osimertinib ever", .)
 
 
 
-# This is record/ca_seq keyed even though it derives from the path dataset.
-dft_exc <- readr::read_rds(here('data', 'first_excision_timing.rds'))
 
-dft_osi_adj <- dft_exc %>%
-  select(record_id, ca_seq, dx_fexc_days) %>%
-  left_join(., dft_osi, by = c("record_id", "ca_seq")) %>%
-  filter(!is.na(regimen_drugs))
 
-dft_osi_adj %<>%
-  mutate(drug_adjuvant = dx_reg_start_int - dx_fexc_days > -0.5) %>%
-  group_by(record_id, ca_seq) %>% # summarizing over drug uses now.
+
+
+# This step does no filtering now - just to get var names included.
+dft_osi_mod <- dft_osi %>%
+  group_by(record_id, ca_seq) %>%
   summarize(
-    any_drug_adjuvant = any(drug_adjuvant, na.rm = T),
-    first_adj_regimen_number = first(regimen_number[drug_adjuvant]),
+    first_regimen_number = first(regimen_number),
     .groups = "drop"
   )
 
-# Now merge that into the cohort data.
 dft_cohort %<>%
-  left_join(., dft_osi_adj, by = c("record_id", "ca_seq")) %>%
-  filter(any_drug_adjuvant)
-dft_flow %<>% flow_record_helper(dft_cohort, "Osi in adjuvant (confirmed with excision record)", .)
+  left_join(., dft_osi_mod, by = c("record_id", "ca_seq")) 
+
+
+
+
+
 
 
 
@@ -93,7 +88,7 @@ dft_cohort <- left_join(
   dft_cohort,
   dft_osi,
   by = c("record_id", "ca_seq",
-         first_adj_regimen_number = "regimen_number"),
+         first_regimen_number = "regimen_number"),
   relationship = "one-to-one"
 )
 
@@ -104,8 +99,8 @@ dft_prog <- readr::read_rds(
 )
 
 dft_prog_times <- dft_cohort %>% 
-  select(record_id, ca_seq, first_adj_regimen_number, dob_reg_start_days) %>%
-  left_join(., dft_prog, by = "record_id") %>%
+  select(record_id, ca_seq, first_regimen_number, dob_reg_start_days) %>%
+  left_join(., dft_prog, by = "record_id", relationship = 'many-to-many') %>%
   # only consider progressions AFTER (not on) the regimen in question.
   filter((dob_prog_days - dob_reg_start_days) > 0.5)  
 
@@ -114,7 +109,7 @@ dft_prog_times %<>%
     cumsum_i = sum(prog_i),
     cumsum_m = sum(prog_m)
   ) %>%
-  group_by(record_id, ca_seq, first_adj_regimen_number) %>%
+  group_by(record_id, ca_seq, first_regimen_number) %>%
   summarize(
     prog_i_or_m_status = sum(prog_i) > 0 | sum(prog_m) > 0,
     prog_i_and_m_status = sum(prog_i) > 0 & sum(prog_m) > 0,
@@ -127,7 +122,7 @@ dft_prog_times %<>%
 dft_cohort <- left_join(
   dft_cohort,
   dft_prog_times,
-  by = c('record_id', 'ca_seq', 'first_adj_regimen_number')
+  by = c('record_id', 'ca_seq', 'first_regimen_number')
 )
     
 dft_cohort %<>% 
@@ -139,15 +134,15 @@ dft_cohort %<>%
     )
   )
 
-dft_cohort %<>% filter(prog_i_and_m_status)
-dft_flow %<>% flow_record_helper(dft_cohort, "Progressed (I and M) after adjuvant osi", .) 
+dft_cohort %<>% filter(prog_i_or_m_status)
+dft_flow %<>% flow_record_helper(dft_cohort, "Progressed (I or M) after adjuvant osi", .) 
 
 
 
 
 
 dft_cohort <- dft_cohort %>% 
-  select(record_id, ca_seq, dob_prog_i_and_m_days) %>%
+  select(record_id, ca_seq, dob_prog_i_or_m_days) %>%
   left_join(
     .,
     dft_reg,
@@ -155,8 +150,8 @@ dft_cohort <- dft_cohort %>%
   ) %>%
   group_by(record_id, ca_seq) %>%
   summarize(
-    any_after_prog = any(drugs_startdt_int_1 >= dob_prog_i_and_m_days),
-    drugs_used_after = first(regimen_drugs[drugs_startdt_int_1 >= dob_prog_i_and_m_days]),
+    any_after_prog = any(drugs_startdt_int_1 >= dob_prog_i_or_m_days),
+    drugs_used_after = first(regimen_drugs[drugs_startdt_int_1 >= dob_prog_i_or_m_days]),
     .groups = "drop"
   )
 
@@ -165,7 +160,7 @@ dft_flow %<>% flow_record_helper(dft_cohort, "One or more regimens after progres
 
 readr::write_rds(
   dft_flow,
-  here('data', 'table_method_1.rds')
+  here('data', 'table_method_2.rds')
 )
 
 

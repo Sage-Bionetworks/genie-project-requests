@@ -1,3 +1,4 @@
+# Based on Jen Hoppe email from May 13.
 
 library(purrr); library(fs); library(here)
 purrr::walk(.x = fs::dir_ls('R'), .f = source)
@@ -6,9 +7,6 @@ purrr::walk(.x = fs::dir_ls('R'), .f = source)
 dft_ca_ind <- readr::read_csv(
   here('data-raw', 'cancer_level_dataset_index.csv')
 )
-dft_path <- readr::read_csv(
-  here('data-raw', 'pathology_report_level_dataset.csv')
-)
 dft_reg <- readr::read_csv(
   here('data-raw', 'regimen_cancer_level_dataset.csv')
 )
@@ -16,32 +14,19 @@ dft_reg <- readr::read_csv(
 dft_flow <- flow_record_helper(dft_ca_ind, "Raw data")
 
 
-
-dft_cohort <- dft_ca_ind %>% 
-  filter(stage_dx %in% c("Stage I", "Stage II", "Stage III", "Stage I-III NOS"))
-
-dft_flow %<>% flow_record_helper(dft_cohort, "Stage I-III at diagnosis", .)
-
-
-
-
-
-dft_cohort %<>% filter_stage_heavy(.) # separate function
-
-dft_flow %<>% flow_record_helper(dft_cohort, "Confirmed 1B-3A at dx", .)
-
-
-
+dft_cohort <- dft_ca_ind
 
 dft_mut <- readr::read_rds(here('data', 'samples_with_mut.rds'))
 dft_cohort %<>% filter(record_id %in% dft_mut$record_id)
+
 dft_flow %<>% flow_record_helper(dft_cohort, "EGFR L858R or exon 19 inframe del (ever)", .)
 
 
-
-
-
-
+dft_cohort %<>%
+  # the "heavy" filter can be used without first limiting to Stage I-III.
+  # the "light" filter cannot.
+  filter_stage_heavy(.) # separate function
+dft_flow %<>% flow_record_helper(dft_cohort, "Confirmed 1B-3A at dx", .)
 
 
 dft_osi <- dft_reg %>% 
@@ -59,7 +44,8 @@ dft_cohort <- dft_osi %>%
   left_join(dft_cohort, ., by = c("record_id", "ca_seq")) %>%
   filter(osi_ever)
 
-dft_flow %<>% flow_record_helper(dft_cohort, "Cases with Osimertinib ever", .)
+# Not stated in the steps they wanted to see:
+# dft_flow %<>% flow_record_helper(dft_cohort, "Cases with Osimertinib ever", .)
 
 
 
@@ -70,7 +56,6 @@ dft_osi_adj <- dft_exc %>%
   select(record_id, ca_seq, dx_fexc_days) %>%
   left_join(., dft_osi, by = c("record_id", "ca_seq")) %>%
   filter(!is.na(regimen_drugs))
-
 dft_osi_adj %<>%
   mutate(drug_adjuvant = dx_reg_start_int - dx_fexc_days > -0.5) %>%
   group_by(record_id, ca_seq) %>% # summarizing over drug uses now.
@@ -79,12 +64,12 @@ dft_osi_adj %<>%
     first_adj_regimen_number = first(regimen_number[drug_adjuvant]),
     .groups = "drop"
   )
-
 # Now merge that into the cohort data.
 dft_cohort %<>%
   left_join(., dft_osi_adj, by = c("record_id", "ca_seq")) %>%
   filter(any_drug_adjuvant)
 dft_flow %<>% flow_record_helper(dft_cohort, "Osi in adjuvant (confirmed with excision record)", .)
+
 
 
 
@@ -97,8 +82,7 @@ dft_cohort <- left_join(
   relationship = "one-to-one"
 )
 
-
-# Pull in the set of progression events:
+# Read the set of computed progression events:
 dft_prog <- readr::read_rds(
   here('data', 'prog_events.rds')
 )
@@ -109,6 +93,9 @@ dft_prog_times <- dft_cohort %>%
   # only consider progressions AFTER (not on) the regimen in question.
   filter((dob_prog_days - dob_reg_start_days) > 0.5)  
 
+# Here I'd expect to see no observations less than or equal to zero, and no big identical clusters.
+# ggplot(dft_prog_times, aes(x = dob_prog_days - dob_reg_start_days, y = 1)) + geom_jitter()
+
 dft_prog_times %<>%
   mutate(
     cumsum_i = sum(prog_i),
@@ -118,7 +105,7 @@ dft_prog_times %<>%
   summarize(
     prog_i_or_m_status = sum(prog_i) > 0 | sum(prog_m) > 0,
     prog_i_and_m_status = sum(prog_i) > 0 & sum(prog_m) > 0,
-    # This part is not needed for the data request but it's right here...
+    # This part is not needed for the data request but it's right here so why not?
     dob_prog_i_or_m_days = first(dob_prog_days[cumsum_i > 0 | cumsum_m > 0]),
     dob_prog_i_and_m_days = first(dob_prog_days[cumsum_i > 0 & cumsum_m > 0]),
     .groups = "drop"
@@ -129,7 +116,7 @@ dft_cohort <- left_join(
   dft_prog_times,
   by = c('record_id', 'ca_seq', 'first_adj_regimen_number')
 )
-    
+
 dft_cohort %<>% 
   replace_na(
     ., 
@@ -141,8 +128,6 @@ dft_cohort %<>%
 
 dft_cohort %<>% filter(prog_i_and_m_status)
 dft_flow %<>% flow_record_helper(dft_cohort, "Progressed (I and M) after adjuvant osi", .) 
-
-
 
 
 
@@ -161,11 +146,14 @@ dft_cohort <- dft_cohort %>%
   )
 
 dft_cohort %<>% filter(any_after_prog)
-dft_flow %<>% flow_record_helper(dft_cohort, "One or more regimens after progression", .) 
+dft_flow %<>% flow_record_helper(dft_cohort, "1+ regimens after I-and-M progression", .) 
+
+
+
 
 readr::write_rds(
   dft_flow,
-  here('data', 'table_method_1.rds')
+  here('data', 'table_method_strict_B.rds')
 )
 
 

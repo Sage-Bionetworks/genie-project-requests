@@ -78,3 +78,19 @@ syn_store_in_dataraw_geno <- function(sid, v = NULL) {
 purrr::walk(.x = df_geno_children$id, 
             .f = syn_store_in_dataraw_geno)
 
+
+
+
+
+syn_store_in_main <- function(sid, v = NULL) {
+  synGet(
+    entity = sid, 
+    downloadLocation = here("data-raw", "main_genie"),
+    ifcollision = 'overwrite.local',
+    version = v
+  )
+}
+
+
+syn_store_in_main("syn5571527") # maf file for main genie.
+syn_store_in_main("syn7392892") # data clinical for main genie.

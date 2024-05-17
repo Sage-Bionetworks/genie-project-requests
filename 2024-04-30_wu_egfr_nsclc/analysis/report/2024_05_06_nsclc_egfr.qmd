@@ -56,7 +56,8 @@ cohort_process_help <- function(coh) {
     mutate(
       # See check_egfr_main_genie.R for the 24746 number.
       naive_projection = round(n * 24746/3549),
-      naive_projection = if_else(row_number() == 1, NA_real_, naive_projection)
+      # for some reason they want this included.
+      # naive_projection = if_else(row_number() == 1, NA_real_, naive_projection)
     )
   
   coh %<>%
@@ -74,6 +75,9 @@ flow_process_wrap <- function(dat) {
   dat %>%
     cohort_process_help(.) %>%
     flextable(.) %>%
+    bold(part = "body", i = 1, j = 3) %>%
+    italic(part = "body", i = 1, j = 3) %>%
+    color(i = 1, j = 3, color = "gray70") %>%
     autofit(.)
 }
 
@@ -86,7 +90,7 @@ dfp_flow_strict_b <- dft_flow_strict_b %>% flow_process_wrap
 
 ## Filtering
 
-Each row in the table below builds on the previous one. The projection factor is just a flat sample size ratio (about 7x).  This is the number of cases we would expect to have if we curated all the patients in main GENIE, including those already done in BPC.  Therefore, the minimum number of new curations which would need to be done is the difference between the right two columns.
+Each row in the table below builds on the previous one. The projection factor is just a flat sample size ratio (about 7x), except for the first row which is the actual number in main GENIE.  This is the number of cases we would expect to have if we curated all the patients in main GENIE, including those already done in BPC.  Therefore, the minimum number of new curations which would need to be done is the difference between the right two columns.
 
 Upon feedback from a May 10 2024 meeting, this is done in three ways which we call "broad", "strict A" and "strict B".  The steps listed in each table fully define the difference between these three.
 

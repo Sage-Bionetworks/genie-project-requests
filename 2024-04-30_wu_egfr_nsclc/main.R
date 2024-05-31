@@ -18,7 +18,7 @@ source(here('analysis', 'script', 'feas_method_strict_B.R'))
 # It takes a long time to run, d/t file size so commented it out.
 # source(here('analysis', 'script', 'check_egfr_main_genie.R')
 
-# Annoyingly this isn't working. Consider this a note to go an render the file using the GUI - sigh.
+# Annoyingly this isn't working. Consider this a note to go an render the file using the GUI.
 # quarto::quarto_render(
 #   input = here('analysis', 'report', '2024_05_06_nsclc_egfr.qmd')
 # )

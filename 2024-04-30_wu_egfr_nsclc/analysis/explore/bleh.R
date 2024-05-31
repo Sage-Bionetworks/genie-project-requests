@@ -1,7 +1,14 @@
 
+library(purrr); library(fs); library(here)
+purrr::walk(.x = fs::dir_ls('R'), .f = source)
+
 
 dft_ca_ind <- readr::read_csv(
   here('data-raw', 'cancer_level_dataset_index.csv')
+)
+
+dft_cpt <- readr::read_csv(
+  here('data-raw', 'cancer_panel_test_level_dataset.csv')
 )
 
 dft_ca_ind %>% nrow # 3671

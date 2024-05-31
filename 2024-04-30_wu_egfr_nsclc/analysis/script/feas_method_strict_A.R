@@ -11,7 +11,7 @@ dft_reg <- readr::read_csv(
   here('data-raw', 'regimen_cancer_level_dataset.csv')
 )
 
-dft_flow <- flow_record_helper(dft_ca_ind, "People with NSCLC")
+dft_flow <- flow_record_helper(dft_ca_ind, "Raw data")
 
 
 dft_cohort <- dft_ca_ind

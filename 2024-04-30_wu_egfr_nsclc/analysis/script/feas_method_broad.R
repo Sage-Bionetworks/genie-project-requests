@@ -99,6 +99,11 @@ readr::write_rds(
   here('data', 'table_method_broad.rds')
 )
 
+readr::write_rds(
+  dft_cohort,
+  here('data', 'final_dat_broad_method.rds')
+)
+
 
 
 

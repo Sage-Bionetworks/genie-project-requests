@@ -50,50 +50,6 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Cases with Osimertinib ever", .)
 
 
 
-# Addon after reading Lev's email
-
-# Last cpt for each  person
-dft_last_cpt <- dft_cpt %>%
-  group_by(record_id, ca_seq) %>%
-  arrange(desc(cpt_number)) %>%
-  slice(1) %>%
-  ungroup(.) %>%
-  select(record_id, ca_seq, dob_cpt_report_days)
-
-dft_ngs_after_osi <- dft_osi %>%
-  group_by(record_id, ca_seq) %>%
-  arrange(regimen_number) %>%
-  slice(1) %>%
-  ungroup(.) %>%
-  left_join(
-    select(dft_cohort, record_id, ca_seq),
-    .,
-    by = c('record_id', 'ca_seq')
-  ) %>%
-  left_join(
-    .,
-    dft_last_cpt,
-    by = c('record_id', 'ca_seq')
-  ) %>%
-  mutate(
-    any_cpt_after_osi = dob_cpt_report_days > dob_reg_start_days
-  ) 
-
-dft_cohort %<>% 
-  left_join(
-    ., select(dft_ngs_after_osi, record_id, ca_seq, any_cpt_after_osi),
-    by = c("record_id", "ca_seq")
-  ) %>%
-  filter(any_cpt_after_osi)
-
-dft_flow %<>% flow_record_helper(dft_cohort, "Cases with an NGS test after Osi use", .)
-
-
-
-
-
-
-
 readr::write_rds(
   dft_flow,
   here('data', 'table_method_broad.rds')

@@ -17,8 +17,9 @@ synid_cbio_data <- "syn58597692"
 geno_files_included <- c(
   "data_mutations_extended.txt",
   "data_CNA.txt",
-  "data_fusions.txt",
-  "data_cna_hg19.seg"
+  "data_sv.txt",
+  "data_cna_hg19.seg",
+  'genomic_information.txt'
   # don't see a genomic information file
 )
 

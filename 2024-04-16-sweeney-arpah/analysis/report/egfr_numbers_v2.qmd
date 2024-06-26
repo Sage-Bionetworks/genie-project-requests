@@ -1,5 +1,6 @@
 ---
-title: "EGFR ARPA-H Numbers"
+title: "J&J Innovative Medicine Query"
+subtitle: "EGFR mutation accumulation in GENIE"
 author: "Alex Paynter"
 date: "`r Sys.Date()`"
 output:

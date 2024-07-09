@@ -8,6 +8,7 @@ source(here('analysis', 'script', 'get_raw_data.R'))
 source(here('analysis', 'script', 'adjuvant_define.R'))
 source(here('analysis', 'script', 'get_genomic_cohort.R'))
 source(here('analysis', 'script', 'make_progression_event_table.R'))
+source(here('analysis', 'script', 'process_ecog.R'))
 # Go through the actual processing needed for the tables:
 source(here('analysis', 'script', 'feas_method_broad.R'))
 source(here('analysis', 'script', 'feas_method_strict_A.R'))

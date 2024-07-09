@@ -1,14 +1,16 @@
-# Based on Jen Hoppe email from May 13.
+# Based on J&J worksheet.
 
 library(purrr); library(fs); library(here)
 purrr::walk(.x = fs::dir_ls('R'), .f = source)
-
 
 dft_ca_ind <- readr::read_csv(
   here('data-raw', 'cancer_level_dataset_index.csv')
 )
 dft_reg <- readr::read_csv(
   here('data-raw', 'regimen_cancer_level_dataset.csv')
+)
+dft_ecog <- read::read_rds(
+  here('data', 'ecog_imputed_not_missing.rds')
 )
 
 dft_flow <- flow_record_helper(dft_ca_ind, "People with NSCLC")
@@ -53,7 +55,7 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Cases with Osimertinib ever", .)
 
 readr::write_rds(
   dft_flow,
-  here('data', 'table_method_broad.rds')
+  here('data', 'table_method_jj_all.rds')
 )
 
 

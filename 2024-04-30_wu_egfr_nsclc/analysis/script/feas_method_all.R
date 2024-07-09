@@ -9,7 +9,7 @@ dft_ca_ind <- readr::read_csv(
 dft_reg <- readr::read_csv(
   here('data-raw', 'regimen_cancer_level_dataset.csv')
 )
-dft_ecog <- read::read_rds(
+dft_ecog <- readr::read_rds(
   here('data', 'ecog_imputed_not_missing.rds')
 )
 
@@ -24,9 +24,34 @@ dft_cohort %<>% filter(record_id %in% dft_mut$record_id)
 dft_flow %<>% flow_record_helper(dft_cohort, "EGFR L858R or exon 19 inframe del (ever)", .)
 
 
+
+
+dft_dmet <- get_dmet_time(dft_ca_ind, annotate_type = F) %>%
+  mutate(dx_dmet_days = dx_dmet_yrs * 365.25) %>%
+  select(-dx_dmet_yrs)
+# Note:  At the time of this writing there are people who were stage IV with no 
+#  mets in the data.  That's an error.  See them with annotate_type = T above.
+
+dft_cohort <- dft_cohort %>%
+  left_join(
+    .,
+    dft_dmet,
+    by = c('record_id', 'ca_seq')
+  )
+
 dft_cohort %<>%
-  filter(stage_dx %in% c("Stage I", "Stage II", "Stage III", "Stage I-III NOS"))
-dft_flow %<>% flow_record_helper(dft_cohort, "Stage I-III at diagnosis", .)
+  mutate(
+    dx_adv_or_met_days = case_when(
+      stage_dx %in% c("Stage III", "Stage IV") ~ 0,
+      !is.na(dx_dmet_days) ~ dx_dmet_days,
+      T ~ NA_real_
+    )
+  )
+
+dft_cohort %<>%
+  filter(!is.na(dx_adv_or_met_days))
+
+dft_flow %<>% flow_record_helper(dft_cohort, "Stage 3/4 dx, or metastasis anytime", .)
 
 
 
@@ -79,7 +104,7 @@ dft_cohort <- dft_osi %>%
 
 readr::write_rds(
   dft_cohort,
-  here('data', 'final_dat_broad_method.rds')
+  here('data', 'final_dat_jj_all.rds')
 )
 
 

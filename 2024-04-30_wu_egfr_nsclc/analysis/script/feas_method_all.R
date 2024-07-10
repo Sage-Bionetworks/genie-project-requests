@@ -13,10 +13,15 @@ dft_ecog <- readr::read_rds(
   here('data', 'ecog_imputed_not_missing.rds')
 )
 
-dft_flow <- flow_record_helper(dft_ca_ind, "People with NSCLC")
+# Just going to do this up front for now.  It's too hard to figure out if
+#   a second cancer is the metastasized one and such.
+dft_cohort <- dft_ca_ind %>%
+  group_by(record_id) %>%
+  arrange(ca_seq) %>%
+  slice(1) %>%
+  ungroup(.)
 
-
-dft_cohort <- dft_ca_ind
+dft_flow <- flow_record_helper(dft_cohort, "People with NSCLC")
 
 dft_mut <- readr::read_rds(here('data', 'samples_with_mut.rds'))
 dft_cohort %<>% filter(record_id %in% dft_mut$record_id)
@@ -51,9 +56,14 @@ dft_cohort %<>%
 dft_cohort %<>%
   filter(!is.na(dx_adv_or_met_days))
 
-dft_flow %<>% flow_record_helper(dft_cohort, "Stage 3/4 dx, or metastasis anytime", .)
+dft_flow %<>% flow_record_helper(dft_cohort, "Stage 3/4 dx, or met anytime", .)
 
-
+# A small QC output for chelsea nichols and team (these cases are all errors): 
+# dft_ca_ind %>% 
+#   filter(stage_dx %in% "Stage IV", !str_detect(ca_dmets_yn, "Yes") | is.na(ca_dmets_yn)) %>% 
+#   select(phase, cohort, record_id, ca_seq, stage_dx, ca_dmets_yn) %>% 
+#   arrange(ca_dmets_yn) %>%
+#   readr::write_csv(., file = here('data', 'nsclc_s4_no_mets.csv'))
 
 
 dft_osi <- dft_reg %>% 
@@ -72,6 +82,10 @@ dft_cohort <- dft_osi %>%
   filter(osi_ever)
 
 dft_flow %<>% flow_record_helper(dft_cohort, "Cases with Osimertinib ever", .)
+
+
+dft_cohort %>% 
+  select(record_id, ca_seq)
 
 
 

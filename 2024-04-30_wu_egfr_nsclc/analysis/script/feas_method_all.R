@@ -118,14 +118,29 @@ dft_reg_post_adv %<>%
 
 dft_cohort <- dft_reg_post_adv %>%
   filter(str_detect(regimen_drugs, "Osimertinib")) %>%
+  # Grab only the first Osi use if there are multiple:
   group_by(record_id, ca_seq) %>%
-  summarize(osi_ever = T, .groups = "drop") %>%
+  arrange(regimen_number) %>%
+  slice(1) %>%
+  ungroup(.) %>%
+  mutate(osi_in_adv_setting = T) %>%
+  select(
+    record_id, ca_seq,
+    osi_in_adv_setting,
+    osi_regimen_number = regimen_number,
+    osi_reg_drugs = regimen_drugs,
+    dx_osi_start_days = dx_reg_start_int,
+    osi_lot = lot
+  ) %>%
   left_join(
-    ., 
     dft_cohort,
+    .,
     by = c("record_id", "ca_seq"),
     relationship = 'one-to-one'
-  ) 
+  ) %>%
+  filter(osi_in_adv_setting)
+
+
 
 dft_flow %<>% flow_record_helper(dft_cohort, "Osi in adv/met setting", .)
 
@@ -134,40 +149,57 @@ readr::write_rds(
   file = here('data', 'line_of_therapy_from_advanced.rds')
 )
 
-# dft_reg_post_adv %>%
-#   rename(line_therapy = lot) %>%
-#   get_lot_most_common_2(.) %>%
-#   display_lot_most_common(.)
   
   
-
-
-
-
-dft_cohort <- dft_reg_post_adv %>%
-  filter(str_detect(regimen_drugs, "Osimertinib")) %>%
-  filter(lot %in% 1) %>%
-  group_by(record_id, ca_seq) %>%
-  summarize(osi_first_line = T, .groups = "drop") %>%
-  left_join(
-    ., 
-    dft_cohort,
-    by = c("record_id", "ca_seq"),
-    relationship = 'one-to-one'
-  ) 
+# Limit to only osi used in the first line setting:
+dft_cohort %<>% 
+  filter(osi_lot %in% 1)
 
 dft_flow %<>% flow_record_helper(dft_cohort, "Osi 1L (adv/met.)", .)
 
 
+# Here we use our limitation of one case per person to ignore ca_seq.
+dft_ecog_cohort <- dft_cohort %>%
+  select(record_id, dob_ca_dx_days, dx_osi_start_days) %>%
+  left_join(
+    .,
+    dft_ecog,
+    by = 'record_id'
+  ) %>%
+  mutate(
+    dx_md_onc_visit_days = md_onc_visit_int - dob_ca_dx_days
+  )
 
+# Get the baseline ECOG relative to Osi
+dft_ecog_baseline <- dft_ecog_cohort %>%
+  group_by(record_id) %>%
+  filter(dx_md_onc_visit_days > dx_osi_start_days) %>%
+  arrange(dx_md_onc_visit_days) %>%
+  summarize(
+    osi_last_ecog = last(md_ecog_imputed),
+    dx_last_md_before_osi = last(dx_md_onc_visit_days),
+    .groups = 'drop'
+  )
 
+# If you add 0 day tolerance you get 81, 30 days 83, 180 days 86.
 
-
-
-readr::write_rds(
-  dft_flow,
-  here('data', 'table_method_jj_all.rds')
+dft_cohort <- left_join(
+  dft_cohort,
+  dft_ecog_baseline,
+  by = 'record_id'
 )
+
+dft_cohort %<>% 
+  filter(
+    str_detect(osi_last_ecog, "0: Fully") | str_detect(osi_last_ecog, "1: ")
+  )
+
+
+dft_flow %<>% flow_record_helper(dft_cohort, "Baseline ECOG of 0 or 1", .)
+
+
+
+
 
 
 
@@ -188,23 +220,16 @@ dft_cohort <- dft_osi %>%
     relationship = "one-to-one"
   )
 
+
+readr::write_rds(
+  dft_flow,
+  here('data', 'table_method_jj_all.rds')
+)
+
 readr::write_rds(
   dft_cohort,
   here('data', 'final_dat_jj_all.rds')
 )
-
-
-
-
-
-
-
-  
-# dft_flow %>% mutate(n = purrr::map_dbl(.x = dat, .f = nrow))
-
-
-
-
 
 
 

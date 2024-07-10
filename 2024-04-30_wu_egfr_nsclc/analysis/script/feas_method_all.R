@@ -13,6 +13,18 @@ dft_ecog <- readr::read_rds(
   here('data', 'ecog_imputed_not_missing.rds')
 )
 
+
+dft_reg %<>%
+  mutate(
+    regimen_drugs = case_when(
+      str_detect(regimen_drugs, "Investigational") ~ "Investigational Regimen",
+      T ~ regimen_drugs
+    )
+  )
+
+
+
+
 # Just going to do this up front for now.  It's too hard to figure out if
 #   a second cancer is the metastasized one and such.
 dft_cohort <- dft_ca_ind %>%
@@ -66,26 +78,86 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Stage 3/4 dx, or met anytime", .)
 #   readr::write_csv(., file = here('data', 'nsclc_s4_no_mets.csv'))
 
 
-dft_osi <- dft_reg %>% 
-  filter(str_detect(regimen_drugs, "Osimertinib")) %>%
-  select(
-    record_id, ca_seq, regimen_number,
-    regimen_drugs, 
-    dob_reg_start_days = drugs_startdt_int_1,
-    dx_reg_start_int
+# dft_osi <- dft_reg %>% 
+#   filter(str_detect(regimen_drugs, "Osimertinib")) %>%
+#   select(
+#     record_id, ca_seq, regimen_number,
+#     regimen_drugs, 
+#     dob_reg_start_days = drugs_startdt_int_1,
+#     dx_reg_start_int
+#   )
+
+# Limit to osi regimens that are on or after adv disease start:
+dft_reg_post_adv <- dft_cohort %>%
+  select(record_id, ca_seq, dx_adv_or_met_days) %>%
+  inner_join(
+    .,
+    dft_reg,
+    by = c('record_id', 'ca_seq'),
+    relationship = 'one-to-many'
   )
 
-dft_cohort <- dft_osi %>% 
+dft_reg_post_adv %<>%
+  # half day tolerance for any rounding:
+  filter(dx_reg_start_int >= (dx_adv_or_met_days - 0.5))
+
+# Remove repeats:
+dft_reg_post_adv %<>%
+  group_by(record_id, ca_seq) %>%
+  arrange(regimen_number) %>%
+  mutate(
+    is_repeat = lag(regimen_drugs) == regimen_drugs
+  ) %>%
+  ungroup(.) %>%
+  filter(!(is_repeat %in% TRUE))
+
+dft_reg_post_adv %<>%
+  group_by(record_id, ca_seq) %>%
+  mutate(lot = 1:n()) %>%
+  ungroup()
+
+dft_cohort <- dft_reg_post_adv %>%
+  filter(str_detect(regimen_drugs, "Osimertinib")) %>%
   group_by(record_id, ca_seq) %>%
   summarize(osi_ever = T, .groups = "drop") %>%
-  left_join(dft_cohort, ., by = c("record_id", "ca_seq")) %>%
-  filter(osi_ever)
+  left_join(
+    ., 
+    dft_cohort,
+    by = c("record_id", "ca_seq"),
+    relationship = 'one-to-one'
+  ) 
 
-dft_flow %<>% flow_record_helper(dft_cohort, "Cases with Osimertinib ever", .)
+dft_flow %<>% flow_record_helper(dft_cohort, "Osi in adv/met setting", .)
+
+readr::write_rds(
+  x = dft_reg_post_adv,
+  file = here('data', 'line_of_therapy_from_advanced.rds')
+)
+
+# dft_reg_post_adv %>%
+#   rename(line_therapy = lot) %>%
+#   get_lot_most_common_2(.) %>%
+#   display_lot_most_common(.)
+  
+  
 
 
-dft_cohort %>% 
-  select(record_id, ca_seq)
+
+
+dft_cohort <- dft_reg_post_adv %>%
+  filter(str_detect(regimen_drugs, "Osimertinib")) %>%
+  filter(lot %in% 1) %>%
+  group_by(record_id, ca_seq) %>%
+  summarize(osi_first_line = T, .groups = "drop") %>%
+  left_join(
+    ., 
+    dft_cohort,
+    by = c("record_id", "ca_seq"),
+    relationship = 'one-to-one'
+  ) 
+
+dft_flow %<>% flow_record_helper(dft_cohort, "Osi 1L (adv/met.)", .)
+
 
 
 
@@ -128,7 +200,7 @@ readr::write_rds(
 
 
   
-    
+# dft_flow %>% mutate(n = purrr::map_dbl(.x = dat, .f = nrow))
 
 
 

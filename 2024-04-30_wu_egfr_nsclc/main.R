@@ -14,6 +14,9 @@ source(here('analysis', 'script', 'feas_method_broad.R'))
 source(here('analysis', 'script', 'feas_method_strict_A.R'))
 source(here('analysis', 'script', 'feas_method_strict_B.R'))
 
+# After speaking with company people we had some additional proposals to work out:
+source(here('analysis', 'script', 'feas_method_jj_all.R'))
+
 # There is some useful main genie info here, but it's just two numbers 
 #   which are pulled and spit into the console.
 # It takes a long time to run, d/t file size so commented it out.

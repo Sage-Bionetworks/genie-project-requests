@@ -72,7 +72,7 @@ dft_rel_sums <- dft_releases %>%
             .x = data_mutations_extended.txt,
             .y = data_clinical_sample.txt,
             .f = \(x,y) {
-                summarize_release_egfr_arpah_all_mut(
+                summarize_release_egfr_arpah_all_mut_primary_and_met(
                     id_mut = x,
                     id_clin_sample = y,
                     samp_oncotree_codes = nsclc_oncotree_codes

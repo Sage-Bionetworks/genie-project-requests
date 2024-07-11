@@ -201,26 +201,6 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Baseline ECOG of 0 or 1", .)
 
 
 
-
-
-# Add the timing of the FIRST osi regimen in.
-dft_cohort <- dft_osi %>%
-  select(
-    record_id, ca_seq, regimen_number,
-    dob_reg_start_days
-  ) %>%
-  arrange(regimen_number) %>%
-  group_by(record_id, ca_seq) %>%
-  slice(1) %>%
-  ungroup(.) %>%
-  left_join(
-    dft_cohort,
-    .,
-    by = c('record_id', 'ca_seq'),
-    relationship = "one-to-one"
-  )
-
-
 readr::write_rds(
   dft_flow,
   here('data', 'table_method_jj_all.rds')

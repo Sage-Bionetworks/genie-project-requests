@@ -38,7 +38,7 @@ dft_releases_p1 <- dft_releases %>%
 
 # The consort releases that may help projecting:
 dft_releases_p2 <- dft_releases %>%
-    filter(str_detect(major, "Release 1[1-6]")) %>%
+    filter(str_detect(major, "Release 1[6]")) %>%
     group_by(major) %>%
     slice(n()) %>%
     ungroup(.)
@@ -54,22 +54,10 @@ dft_releases <- dft_releases %>%
 
 
 
-# not found: A763_Y764insFQEA, S768I, G719, 729_761del\
-# regex style:
-mut_prot_symbols <- c("729_761del",
-    "G719.*",
-    "L858R",
-    "L861Q",
-    "S768I",
-    "T790M",
-    "A763_Y764insFQEA")
-
 # exact matches:
 nsclc_oncotree_codes <- mskcc.oncotree::get_tumor_types() %>%
     filter(oncotree_main_type %in% "Non-Small Cell Lung Cancer") %>% 
     pull(oncotree_code)
-
-
 
 # Example of doing one:
 # sum_rtn <- summarize_release_egfr_arpah(
@@ -81,37 +69,43 @@ nsclc_oncotree_codes <- mskcc.oncotree::get_tumor_types() %>%
 #     samp_oncotree_codes = nsclc_oncotree_codes
 # )
 
+get_clin_helper <- function(synid, skip = 0) {
+    dat_clin <- get_synapse_entity_txt(synid, skip = skip)
+    return(dat_clin)
+} 
+
 # Doing them all:
 dft_rel_sums <- dft_releases %>%
-    # slice(c(1,5,6)) %>% # temporary.
     mutate(
-        release_sum = purrr::map2(
-            .x = data_mutations_extended.txt,
-            .y = data_clinical_sample.txt,
-            .f = \(x,y) {
-                summarize_release_egfr_arpah(
-                    id_mut = x,
-                    id_clin_sample = y,
-                    protein_symbols = mut_prot_symbols,
-                    samp_oncotree_codes = nsclc_oncotree_codes
-                )
-            }
+        release_pt = purrr::map(
+            .x = data_clinical_patient.txt,
+            .f = \(x) get_clin_helper(x, skip = 0)
+        ),
+        release_samp = purrr::map(
+            .x = data_clinical_sample.txt,
+            .f = \(x) get_clin_helper(x, skip = 4)
         )
     )
 
-
-
-# Just checking to see if this is more efficient (probably)
-readr::write_rds(
-    x = dft_rel_sums,
-    file = here('data', 'release_sum_nested.rds')
-)
-
-toc()
-
-# This would be a reasonable next step, but it's way less efficient to store this way:
-# dft_rel_sums %<>% unnest(release_sum)
-
-
-
-
+dft_rel_sums %<>%
+    mutate(
+        n_total = purrr::map_dbl(
+            .x = release_samp,
+            .f = \(x) {
+                x %>% count(patient_id) %>% nrow
+            }
+        ),
+        n_nsclc = purrr::map_dbl(
+            .x = release_samp,
+            .f = \(x) {
+                x %>%
+                    filter(oncotree_code %in% nsclc_oncotree_codes) %>%
+                    count(patient_id) %>%
+                    nrow
+            }
+        )
+    )
+        
+dft_rel_sums %>%
+    select(minor, matches("n_"))
+        

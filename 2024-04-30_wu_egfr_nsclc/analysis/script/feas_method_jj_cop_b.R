@@ -78,7 +78,6 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Stage 3/4 dx, or met anytime", .)
 #   readr::write_csv(., file = here('data', 'nsclc_s4_no_mets.csv'))
 
 
-
 # Limit to osi regimens that are on or after adv disease start:
 dft_reg_post_adv <- dft_cohort %>%
   select(record_id, ca_seq, dx_adv_or_met_days) %>%
@@ -136,13 +135,9 @@ dft_cohort <- dft_reg_post_adv %>%
 
 dft_flow %<>% flow_record_helper(dft_cohort, "Osi in adv/met setting", .)
 
-readr::write_rds(
-  x = dft_reg_post_adv,
-  file = here('data', 'line_of_therapy_from_advanced.rds')
-)
 
-  
-  
+
+
 # Limit to only osi used in the first line setting:
 dft_cohort %<>% 
   filter(osi_lot %in% 1)
@@ -151,9 +146,40 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Osi 1L (adv/met.)", .)
 
 
 
+
+dft_cohort <- dft_reg_post_adv %>%
+  filter(
+    str_detect(regimen_drugs, "Pemetrex"),
+    str_detect(regimen_drugs, "Carbo")
+  ) %>%
+  filter(lot %in% 2) %>%
+  mutate(carbo_pem_2l = T) %>%
+  select(
+    record_id, ca_seq,
+    carbo_pem_2l,
+    cp_regimen_number = regimen_number,
+    cp_reg_drugs = regimen_drugs,
+    dx_cp_start_days = dx_reg_start_int,
+    cp_lot = lot
+  ) %>%
+  left_join(
+    dft_cohort,
+    .,
+    by = c("record_id", "ca_seq"),
+    relationship = 'one-to-one'
+  ) 
+
+dft_cohort %<>%
+  filter(carbo_pem_2l)
+
+dft_flow %<>% flow_record_helper(dft_cohort, "Carbo/Pem 2L (adv/met.)", .)
+  
+
+
+
 # Here we use our limitation of one case per person to ignore ca_seq.
 dft_ecog_cohort <- dft_cohort %>%
-  select(record_id, dob_ca_dx_days, dx_osi_start_days) %>%
+  select(record_id, dob_ca_dx_days, dx_cp_start_days) %>%
   left_join(
     .,
     dft_ecog,
@@ -166,15 +192,13 @@ dft_ecog_cohort <- dft_cohort %>%
 # Get the baseline ECOG relative to Osi
 dft_ecog_baseline <- dft_ecog_cohort %>%
   group_by(record_id) %>%
-  filter(dx_md_onc_visit_days > dx_osi_start_days) %>%
+  filter(dx_md_onc_visit_days > dx_cp_start_days) %>%
   arrange(dx_md_onc_visit_days) %>%
   summarize(
     osi_last_ecog = last(md_ecog_imputed),
     dx_last_md_before_osi = last(dx_md_onc_visit_days),
     .groups = 'drop'
   )
-
-# If you add 0 day tolerance you get 81, 30 days 83, 180 days 86.
 
 dft_cohort <- left_join(
   dft_cohort,
@@ -196,12 +220,13 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Baseline ECOG of 0 or 1", .)
 
 readr::write_rds(
   dft_flow,
-  here('data', 'table_method_jj_all.rds')
+  here('data', 'table_method_jj_cop_b.rds')
 )
 
 readr::write_rds(
   dft_cohort,
-  here('data', 'final_dat_jj_all.rds')
+  here('data', 'final_dat_jj_cop_b.rds')
+  
 )
 
 

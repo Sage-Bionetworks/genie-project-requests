@@ -12,6 +12,12 @@ dft_reg <- readr::read_csv(
 dft_ecog <- readr::read_rds(
   here('data', 'ecog_imputed_not_missing.rds')
 )
+dft_path <- readr::read_csv(
+  here('data-raw', 'pathology_report_level_dataset.csv')
+)
+dft_ca_evi <- readr::read_rds(
+  here('data', 'ca_evid_combined.rds')
+)
 
 
 dft_reg %<>%
@@ -136,13 +142,8 @@ dft_cohort <- dft_reg_post_adv %>%
 
 dft_flow %<>% flow_record_helper(dft_cohort, "Osi in adv/met setting", .)
 
-readr::write_rds(
-  x = dft_reg_post_adv,
-  file = here('data', 'line_of_therapy_from_advanced.rds')
-)
 
-  
-  
+
 # Limit to only osi used in the first line setting:
 dft_cohort %<>% 
   filter(osi_lot %in% 1)
@@ -194,15 +195,83 @@ dft_flow %<>% flow_record_helper(dft_cohort, "Baseline ECOG of 0 or 1", .)
 
 
 
-readr::write_rds(
-  dft_flow,
-  here('data', 'table_method_jj_all.rds')
-)
+dft_cohort <- dft_path %>%
+  filter(path_proc %in% "Surgical excision") %>%
+  group_by(record_id) %>%
+  arrange(path_proc_int) %>%
+  slice(1) %>%
+  ungroup(.) %>%
+  select(record_id, dob_earliest_excision = path_proc_int) %>%
+  left_join(
+    dft_cohort,
+    .,
+    by = 'record_id'
+  )
+
+dft_cohort %<>%
+  mutate(
+    dx_earliest_excision = dob_earliest_excision - dob_ca_dx_days
+  ) %>%
+  filter(
+    # half day tolerance for rounding
+    (dx_earliest_excision - 0.5) <= dx_osi_start_days
+  )
+
+dft_flow %<>% flow_record_helper(dft_cohort, "Surgical excision before 1L Osi", .)
+
+
+
+
+dft_ca_evi_cohort <- dft_ca_evi %>%
+  filter(record_id %in% dft_cohort$record_id) %>%
+  left_join(
+    .,
+    select(dft_cohort, record_id, dx_osi_start_days, dob_ca_dx_days),
+    by = 'record_id'
+  )
+
+dft_ca_evi_cohort %<>%
+  mutate(
+    dx_obs_days = dob_obs_days - dob_ca_dx_days
+  ) %>%
+  filter(
+    dx_obs_days - 0.5 >= dx_osi_start_days
+  )
+
+dft_ca_evi_cohort %<>%
+  arrange(record_id, dob_obs_days) %>%
+  group_by(record_id) %>%
+  mutate(
+    this_no_cancer = cumsum(ca_short %in% F) >= 1,
+    prev_no_cancer = lag(this_no_cancer, default = F)
+  ) %>%
+  mutate(
+    recurrence = ca_short %in% T & prev_no_cancer
+  ) %>%
+  ungroup(.)
+
+dft_ca_evi_cohort %<>%
+  filter(recurrence) %>%
+  group_by(record_id) %>%
+  slice(1) %>%
+  ungroup
+
+dft_cohort %<>%
+  left_join(
+    .,
+    select(dft_ca_evi_cohort, record_id, recurrence),
+    by = 'record_id'
+  ) %>%
+  filter(recurrence)
+
+dft_flow %<>% flow_record_helper(dft_cohort, "Recurrence after Osi", .)
+
 
 readr::write_rds(
-  dft_cohort,
-  here('data', 'final_dat_jj_all.rds')
+  dft_flow,
+  here('data', 'table_method_jj_emer.rds')
 )
+
 
 
 

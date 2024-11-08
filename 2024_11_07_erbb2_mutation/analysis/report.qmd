@@ -1,0 +1,115 @@
+---
+title: "[3] Off-Label & Off-Guideline Project"
+subtitle: "Main results, explorations"
+author: "Alex Paynter"
+date: "`r format(Sys.Date(), '%d %b %Y')`"
+editor_options:
+  quarto:
+    chunk_output_type: console
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    theme: sandstone 
+execute:
+  echo: false
+  include: false
+  warning: false
+  message: false
+  fig.width: 7
+  fig.height: 5
+---
+
+```{r}
+library(readr)
+library(here)
+library(quarto)
+library(knitr)
+library(tidyverse)
+library(DT)
+```
+```{r}
+three_numbers <- read_rds(here('data', 'three_numbers.rds'))
+mut_counts_in_list <- readr::read_rds(here('data', 'mut_counts_in_list.rds'))
+all_erbb2 <- readr::read_rds(here('data', 'all_erbb2.rds'))
+```
+
+
+```{r}
+dt_wrapper <- function(x, font.size = '10pt') {
+  DT::datatable(
+    x,
+    style = "bootstrap4",
+    fillContainer = F,
+    options=list(
+      initComplete = htmlwidgets::JS(
+        "function(settings, json) {",
+        paste0("$(this.api().table().container()).css({'font-size': '", font.size, "'});"),
+        "}")
+    ) 
+  )
+}
+```
+
+
+## Introduction
+
+This is an investigation into the ERBB2 mutations in GENIE after the Bayer kickoff meeting.  
+
+## Three number summary
+
+This was presented during the meeting, updated now with 17.4 Consortium data:
+
+- NSCLC patients:  `r three_numbers[1]`
+- NSCLC patients with at least one ERBB2 mutation: `r three_numbers[2]`
+- NSCLC patients with at least one ERBB2 mutation on Bayer's list: `r three_numbers[3]`
+
+The first two are incremental increases, the last one is obviously quite different.  I think I have a guess what happened with the previous pull.  There are two variants listed with synonyms: "A775_G776insYVMA/Y772_A775dup" and "P780_Y781insGSP/G778_P780dup".  If you search for these strings in GENIE obviously you don't get anything back, because people use one or the other but never both separated by `/`.  Y772_A775dup happens to be the most common ERBB2 activating variant, so this has a major impact.
+
+In this report I mapped to the first synonym of the two arbitrarily so the list doesn't split two things which are identical.
+
+```{r}
+mut_counts_in_list %<>%
+    mutate(
+        pct_nsclc = formatC(prop_nsclc*100, digits = 3, format = 'f'),
+        pct_nsclc_erbb2 = formatC(prop_nsclc_erbb2*100, digits = 3, format = 'f')
+    ) %>%
+    select(-contains("prop")) %>%
+    arrange(desc(people))
+```
+
+## On-list ERBB2 (people)
+
+Three columns stated below for each mutation in the sponsor's list:
+
+- `people` - Number of people with this variant (at least once).
+- `pct_nsclc` - People / total people with NSCLC in main GENIE.
+- `pct_nsclc_erbb2` - People / total people with NSCLC and at least one ERBB2 mutation in main GENIE.
+
+```{r}
+#| include: true
+dt_wrapper(mut_counts_in_list)
+```
+## All ERBB2 (variants)
+
+This table states variants (`alterations`).  We also show whether a variant is in the activating mutations list, `act_list`.  The goal is seeing if there are common variants that might be synonyms for an activating mutation, spotting typos, etc.
+
+```{r}
+#| include: true
+dt_wrapper(all_erbb2)
+```
+**Notes:**
+
+- Of the variants with `act_list = false`, I see lots of stop mutations and some with no expected change.
+- `G776delinsVV` and `G776delinsLC` are close to one of the activating mutations and could be a synonym, but we're down to handfuls of people.
+- There quite a few that start with `A775_G776ins` too, which could easily be similar to our top hit.  Down to two alterations per person here.
+
+## What's not covered
+
+We checked out variants with protein codes in this report.  There is also the possibility that some variants might use the coding DNA codes or the long protein codes, without correctly harmonizing to these short codes.  We can look at that if desired.
+
+
+
+
+

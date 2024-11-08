@@ -105,9 +105,39 @@ dt_wrapper(all_erbb2)
 - `G776delinsVV` and `G776delinsLC` are close to one of the activating mutations and could be a synonym, but we're down to handfuls of people.
 - There quite a few that start with `A775_G776ins` too, which could easily be similar to our top hit.  Down to two alterations per person here.
 
+
+```{r}
+dfp_site_nsclc_erbb2 <- readr::read_rds(here('data', 'site_nsclc_erbb2.rds'))
+
+dfp_site_nsclc_erbb2 %<>%
+    mutate(
+        pct_nsclc = formatC(prop_nsclc*100, digits = 3, format = 'f'),
+    ) %>%
+    select(-contains("prop")) %>%
+    arrange(desc(people))
+```
+
+## Center breakdown
+
+The following table shows the proportion of subjects with at least one ERBB2 activating mutation in the list (`people`) and the percentage/number of those at the site with NSCLC.
+
+
+```{r}
+#| include: true
+dt_wrapper(dfp_site_nsclc_erbb2)
+```
+
+- Some site variation is expected due to processing pipelines and demographics/stages enrolled at sites (which varies more than you might expected in BPC cohorts).
+- DFCI being lower than MSK is a surprise to me.  This was the opposite of what we saw in prostate cancer, which we post-hoc explained with tenuous credibility by tumor-only sequencing.
+- PROV is an intersting case since we've had some problems with them and their numbers are way lower than our biggest tumor-normal (MSK) and tumor-only (DFCI) comparators.
+- UHN has tended to sequence people who are more severe than US sites, and they report up more variants even adjusting for stage, so this high value does not suprise me.  There is a vague trend here for programs with known elite genomics programs (UCSF, JHU, UHN, MDA) to be on the high side.
+
+
+
 ## What's not covered
 
-We checked out variants with protein codes in this report.  There is also the possibility that some variants might use the coding DNA codes or the long protein codes, without correctly harmonizing to these short codes.  We can look at that if desired.
+- We checked out variants with protein codes in this report.  There is also the possibility that some variants might use the coding DNA codes or the long protein codes, without correctly harmonizing to these short codes.  We can look at that if desired.
+- We have not covered inclusion criteria other than NSCLC (done by Oncotree primary node) or ERBB2 mutation status.  Things like stage or sequence year are ignored.
 
 
 

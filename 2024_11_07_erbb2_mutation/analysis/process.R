@@ -52,13 +52,13 @@ clin_nsclc <- clin %>%
     filter(
         oncotree_code %in% vec_nsclc_oncotree
     ) %>%
-    select(sample_id, oncotree_code, patient_id, seq_year)
+    select(sample_id, oncotree_code, patient_id, seq_year, center)
 
 nsclc_erbb2 <- mut %>%
     filter(hugo_symbol %in% "ERBB2") %>%
     inner_join(
         .,
-        clin_nsclc,
+        select(clin_nsclc, -center),
         by = c(tumor_sample_barcode = "sample_id")
     ) 
 
@@ -114,8 +114,10 @@ nsclc_erbb2 %>% filter(act_list) %>% count(patient_id) %>% nrow # with erbb2 act
 dfp_mut_counts_in_list <- nsclc_erbb2 %>%
     filter(act_list) %>%
     # get one row per patient/hgvsp code - just in case of dupes.
-    count(hgvsp_short_trim, patient_id) %>% 
-    count(hgvsp_short_trim, name = 'people') %>%
+    group_by(hgvsp_short_trim) %>%
+    summarize(people = length(unique(patient_id)), .groups = 'drop') %>%
+    # count(hgvsp_short_trim, patient_id) %>% 
+    # count(hgvsp_short_trim, name = 'people') %>%
     mutate(
         hgvsp_short_trim = factor(hgvsp_short_trim, levels = vec_sponsor_list)
     ) %>%
@@ -130,6 +132,22 @@ dfp_all_erbb2_muts <- nsclc_erbb2 %>%
     count(hgvsp_short_trim, act_list, name = "alterations") %>%
     arrange(desc(alterations)) 
 
+dfp_site_nsclc_erbb2 <- nsclc_erbb2 %>%
+    filter(act_list) %>%
+    # get one row per patient/hgvsp code - just in case of dupes.
+    group_by(center) %>%
+    summarize(people = length(unique(patient_id)), .groups = 'drop') 
+
+dfp_site_nsclc_erbb2 <- clin_nsclc %>%
+    group_by(center) %>%
+    summarize(n_nsclc_center = length(unique(patient_id)), .groups = 'drop') %>%
+    full_join(dfp_site_nsclc_erbb2, ., by = 'center') %>% 
+    replace_na(list(people = 0)) %>%
+    mutate(
+        prop_nsclc = people / n_nsclc_center,
+    ) %>%
+    arrange(desc(people))
+
 readr::write_rds(
     dfp_mut_counts_in_list,
     here('data', 'mut_counts_in_list.rds')
@@ -138,6 +156,11 @@ readr::write_rds(
 readr::write_rds(
     dfp_all_erbb2_muts,
     here('data', 'all_erbb2.rds')
+)
+
+readr::write_rds(
+    dfp_site_nsclc_erbb2,
+    here('data', 'site_nsclc_erbb2.rds')
 )
 
 readr::write_rds(

@@ -22,7 +22,7 @@ mut <- get_synapse_entity_data_in_tsv(
 )
 
 clin <- get_synapse_entity_data_in_tsv(
-    synapse_id = 'syn7392892'
+    synapse_id = 'syn7392892',
 )
 
 readr::write_rds(mut, here('data', 'mut.rds'))

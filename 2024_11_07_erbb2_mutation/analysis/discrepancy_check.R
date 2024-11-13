@@ -29,4 +29,8 @@ setdiff(alex_record, vec_jumi_record)
 discrep <- setdiff(vec_jumi_record, alex_record)
 
 clin %>%
-    filter(sample_id %in% discrep) # they don't exist.
+    filter(patient_id %in% discrep) %>%
+    glimpse# they don't exist.
+
+mut %>% 
+    filter(tumor_sample_barcode %in% discrep)

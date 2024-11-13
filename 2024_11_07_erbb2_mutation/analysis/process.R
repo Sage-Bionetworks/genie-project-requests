@@ -168,3 +168,17 @@ readr::write_rds(
       (nsclc_erbb2 %>% filter(act_list) %>% count(patient_id) %>% nrow)),
     here('data', 'three_numbers.rds')
 )
+
+# AACR team member asked for the list too:
+readr::write_csv(
+    (nsclc_erbb2 %>% filter(act_list)),
+    here('data', 'nsclc_erbb2_activating_mutations.csv')
+)
+
+readr::write_csv(
+    (nsclc_erbb2 %>% 
+         filter(act_list) %>% 
+         select(tumor_sample_barcode, patient_id) %>%
+         distinct(.)),
+    here('data', 'nsclc_erbb2_cohort.csv')
+)

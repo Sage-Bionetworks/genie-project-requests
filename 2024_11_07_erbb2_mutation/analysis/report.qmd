@@ -1,6 +1,5 @@
 ---
 title: "Bayer HER2 feasibility project"
-subtitle: "Main results, explorations"
 author: "Alex Paynter"
 date: "`r format(Sys.Date(), '%d %b %Y')`"
 editor_options:

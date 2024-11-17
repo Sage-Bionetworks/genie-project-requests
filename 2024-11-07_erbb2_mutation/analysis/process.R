@@ -182,3 +182,26 @@ readr::write_csv(
          distinct(.)),
     here('data', 'nsclc_erbb2_cohort.csv')
 )
+
+# One more request: PROV samples, what panels did they use?
+prov_request <- clin_nsclc %>% 
+    filter(center %in% "PROV") %>%
+    # put the assay info back in:
+    left_join(., select(clin, sample_id, seq_assay_id), by = 'sample_id') %>%
+    # add a flag for whether this sample wound up in our cohort:
+    mutate(has_act_mut = sample_id %in% (
+        nsclc_erbb2 %>% filter(act_list) %>% 
+            pull(tumor_sample_barcode) %>% unique))
+
+readr::write_csv(
+    prov_request,
+    here('data', 'prov_samples.csv')
+)
+
+prov_request %>% 
+    group_by(seq_assay_id) %>%
+    summarize(
+        samples = n(),
+        samples_with_erbb2_act_mut = sum(has_act_mut),
+        prop = samples_with_erbb2_act_mut/samples
+    )

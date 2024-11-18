@@ -1,6 +1,6 @@
 ## About the project
 
-This is a request from Tony Wu on the possible number of HER2 ultra-low. Cases we may have.  This can't be directly assessed in GENIE yet, so we pulled the superset of those with IHC = 0 and ISH negative cases from BPC, and projected those into main GENIE.
+This is a request from Tony Wu on the possible number of HER2 ultra-low cases we may have in main GENIE.  This can't be directly assessed in GENIE yet, so we pulled the superset of those with IHC = 0 and ISH negative cases from BPC, and projected those into main GENIE.
 
 ## Getting started
 

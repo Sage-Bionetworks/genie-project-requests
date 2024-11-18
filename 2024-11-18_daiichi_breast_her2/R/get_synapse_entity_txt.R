@@ -4,7 +4,8 @@ get_synapse_entity_txt <- function(
         synapse_id, 
         version = NA,
         skip = 0,
-        cols_to_lower = T
+        cols_to_lower = T,
+        sep = 'auto'
 ) {
     if (is.na(version)) {
         entity <- synGet(synapse_id, followLink = T)

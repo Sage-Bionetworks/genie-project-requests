@@ -1,13 +1,8 @@
 library(here); library(purrr); library(fs)
 purrr::walk(fs::dir_ls(here('R')), .f = source)
 
-# this is pulled from the analysis/explore/her2_low.R file in the breast cancer data.
-attrition_table <- tribble(
-    ~step, ~n_bpc,
-    'Breast cancer cases', 1129,
-    'Metastatic dx (anytime)', 878,
-    'ISH neg', 403,
-    'IHC = 0', 96
+attrition_table <- readr::read_rds(
+    here('data', 'bpc_attrition.rds')
 )
 
 attrition_table %<>%
@@ -22,8 +17,9 @@ release %<>%
            dat) %>%
     unnest(dat)
 
+# may need to be updated:
 release %<>% 
-    mutate(release = if_else(release %in% '17.4-consortium', '17.1-estimate', release))
+    mutate(release = if_else(release %in% '17.5-consortium', '17.1-estimate', release))
     
 
 center_region <- tribble(
@@ -120,11 +116,11 @@ rel_sum_n %<>%
                (as.numeric(stringr::str_sub(release, 1, 2))-11)/2
     ) 
 
-get_slope(
-    filter(rel_sum_n, region %in% "Europe") %>% pull(yrs_from_11),
-    filter(rel_sum_n, region %in% "Europe") %>% pull(n)
-)
-    
+# get_slope(
+#     filter(rel_sum_n, region %in% "Europe") %>% pull(yrs_from_11),
+#     filter(rel_sum_n, region %in% "Europe") %>% pull(n)
+# )
+#     
 
 rel_sum_accrual <- rel_sum_n %>%
     group_by(region) %>%

@@ -20,125 +20,67 @@ execute:
   fig.height: 5
 ---
 
-```{r}
-library(readr)
-library(here)
-library(quarto)
-library(knitr)
-library(tidyverse)
-library(DT)
-```
-```{r}
-three_numbers <- read_rds(here('data', 'three_numbers.rds'))
-mut_counts_in_list <- readr::read_rds(here('data', 'mut_counts_in_list.rds'))
-all_erbb2 <- readr::read_rds(here('data', 'all_erbb2.rds'))
-```
-
 
 ```{r}
-dt_wrapper <- function(x, font.size = '10pt') {
-  DT::datatable(
-    x,
-    style = "bootstrap4",
-    fillContainer = F,
-    options=list(
-      initComplete = htmlwidgets::JS(
-        "function(settings, json) {",
-        paste0("$(this.api().table().container()).css({'font-size': '", font.size, "'});"),
-        "}")
-    ) 
-  )
-}
+
+library(purrr); library(here); library(fs)
+purrr::walk(.x = fs::dir_ls(here('R')), .f = source)
+
+
+attrition <- readr::read_rds(
+    here('data', 'attrition.rds')
+)
+
+attrition_center <- readr::read_rds(
+    here('data', 'attrition_center.rds')
+)
 ```
 
 
 ## Introduction
 
-This is an investigation into the ERBB2 mutations in GENIE after the Bayer kickoff meeting.  
+This is an investigation into the Bayer HER2 project and attrition we would expect with each exclusion criterion.  Information we've firmed up with the sponsor at this point:
 
-## Three number summary
+- "Activating mutations" is a list of short protein codes for ERBB2 mutations provided by the company.
+- Stage:  We agreed to include two groups of people:  Those diagnosed at stage 3B or higher, and those who develop a metastasis at any time (even if diagnosed at say, stage 2).  Those diagnosed at 3B tend to develop mets, but the "ever metastatic" group contains many people diagnosed at an early stage.
 
-This was presented during the meeting, updated now with 17.4 Consortium data:
+There are rows below this in the table for additional criteria we thought may be helpful, but may not be that easy to screen for without doing a full curation.  These are nested versions of a restriction based on the types of cancers the person should have.
 
-- NSCLC patients:  `r three_numbers[1]`
-- NSCLC patients with at least one ERBB2 mutation: `r three_numbers[2]`
-- NSCLC patients with at least one ERBB2 mutation on Bayer's list: `r three_numbers[3]`
+## Methods
 
-The first two are incremental increases, the last one is obviously quite different.  I think I have a guess what happened with the previous pull.  There are two variants listed with synonyms: "A775_G776insYVMA/Y772_A775dup" and "P780_Y781insGSP/G778_P780dup".  If you search for these strings in GENIE obviously you don't get anything back, because people use one or the other but never both separated by `/`.  Y772_A775dup happens to be the most common ERBB2 activating variant, so this has a major impact.
+We used a different method here than we have previously.  Appreciating that sites sometimes have different patient populations, each forecast is based on a site-specific proportion in BPC for DFCI and MSK (it's the marginal rate for everyone else).  For example, at the stage-based step, we select a proportion of people from DFCI mirroring the DFCI BPC rate, same for MSK, etc.
 
-In this report I mapped to the first synonym of the two arbitrarily so the list doesn't split two things which are identical.
+In practice lung cancer appears to be more similar between sites than I expected, so this doesn't make a big difference.
 
-```{r}
-mut_counts_in_list %<>%
-    mutate(
-        pct_nsclc = formatC(prop_nsclc*100, digits = 3, format = 'f'),
-        pct_nsclc_erbb2 = formatC(prop_nsclc_erbb2*100, digits = 3, format = 'f')
-    ) %>%
-    select(-contains("prop")) %>%
-    arrange(desc(people))
-```
+This method also selects actual people at each step, so there is some potential for rounding error with projects that have tons of steps or tiny sample sizes, and there is some stochasticity in site numbers outside of DFCI and MSK.  The next iteration of this idea is quantifying the variability by resampling and doing actual binary draws rather than keeping a proportion. 
 
-## On-list ERBB2 (people)
+## Results
 
-Three columns stated below for each mutation in the sponsor's list:
-
-- `people` - Number of people with this variant (at least once).
-- `pct_nsclc` - People / total people with NSCLC in main GENIE.
-- `pct_nsclc_erbb2` - People / total people with NSCLC and at least one ERBB2 mutation in main GENIE.
-
-```{r}
-#| include: true
-dt_wrapper(mut_counts_in_list)
-```
-## All ERBB2 (variants)
-
-This table states variants (`alterations`).  We also show whether a variant is in the activating mutations list, `act_list`.  The goal is seeing if there are common variants that might be synonyms for an activating mutation, spotting typos, etc.
-
-```{r}
-#| include: true
-dt_wrapper(all_erbb2)
-```
-**Notes:**
-
-- Of the variants with `act_list = false`, I see lots of stop mutations and some with no expected change.
-- `G776delinsVV` and `G776delinsLC` are close to one of the activating mutations and could be a synonym, but we're down to handfuls of people.
-- There quite a few that start with `A775_G776ins` too, which could easily be similar to our top hit.  Down to two alterations per person here.
-
-
-```{r}
-dfp_site_nsclc_erbb2 <- readr::read_rds(here('data', 'site_nsclc_erbb2.rds'))
-
-dfp_site_nsclc_erbb2 %<>%
-    mutate(
-        pct_nsclc = formatC(prop_nsclc*100, digits = 3, format = 'f'),
-    ) %>%
-    select(-contains("prop")) %>%
-    arrange(desc(people))
-```
-
-## Center breakdown
-
-The following table shows the proportion of subjects with at least one ERBB2 activating mutation in the list (`people`) and the percentage/number of those at the site with NSCLC.
+The following table shows the number we have in BPC (`n_bpc`), main GENIE total, which includes BPC (`n_main`).  A subtraction gives us the number available to curate, or in other words the maximum budget number if we want to avoid double-charging (`n_curate`).  Gray numbers are estimated, black numbers are counted.
 
 
 ```{r}
 #| include: true
-dt_wrapper(dfp_site_nsclc_erbb2)
+attrition %>%
+    flextable(.) %>%
+    autofit(.) %>%
+    color(j = 3:4, i = 4:7, color = "gray70")
 ```
 
-- Some site variation is expected due to processing pipelines and demographics/stages enrolled at sites (which varies more than you might expected in BPC cohorts).
-- DFCI being lower than MSK is a surprise to me.  This was the opposite of what we saw in prostate cancer, which we post-hoc explained with tenuous credibility by tumor-only sequencing.
-- PROV is an intersting case since we've had some problems with them and their numbers are way lower than our biggest tumor-normal (MSK) and tumor-only (DFCI) comparators.
-- UHN has tended to sequence people who are more severe than US sites, and they report up more variants even adjusting for stage, so this high value does not suprise me.  There is a vague trend here for programs with known elite genomics programs (UCSF, JHU, UHN, MDA) to be on the high side.
+The following sortable table breaks these down by center and site.  Two suggested ways to use this:
 
+- See the center-based table:  Put the center you want to see in the search bar.
+- See the top sites at a given step:  Put the step in the search bar.
 
+```{r}
+#| include: true
+dt_wrapper(attrition_center)
+```
 
-## What's not covered
+## Missing pieces
 
-- We checked out variants with protein codes in this report.  There is also the possibility that some variants might use the coding DNA codes or the long protein codes, without correctly harmonizing to these short codes.  We can look at that if desired.
-- We have not covered inclusion criteria other than NSCLC (done by Oncotree primary node) or ERBB2 mutation status.  Things like stage or sequence year are ignored.
-
-
-
-
-
+- Sample timing - it will likely be a problem if someone hits 3B+/met and then gets NGS a long time after.  Less of a concern with the advanced stage (short survival).
+- Stage 3B - A limitation here is that we're missing the curated stage (`ca_stage`).  This can probably be re-derived from the TNM code data, which we do have.  However, for this report we just did not include these people, erring on the side of a conservative estimate.   Two reasons this makes sense:
+    1. Most of the stage 3B people develop mets eventually, so our compound condition gets them anyway.
+    2. Most people have the tumor registry version available, which is prioritized over the curated stage, so the curated stage is the determining variable for a minority.
+    

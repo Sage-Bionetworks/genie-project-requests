@@ -12,21 +12,21 @@ dat <- tibble(
 dat <- dat |>
   add_row(
     name = "GENIE",
-    n = 230 * 10^,
+    n = 230 * 10^3,
     lab = "Main GENIE",
     color = "#a08498"
   ) |>
   add_row(
-    name = "BPC pubilc",
-    n = 3819 + 2299, # CRC and lung
-    lab = "BPC Public",
-    color = "#bb9bac"
+    name = "BPC consortium",
+    n = 3819 + 2299 + 1129 + 1109 + 1116 + 714,
+    lab = "BPC consortium",
+    color = "#cabcc9"
   ) |>
   add_row(
-    name = "BPC private",
-    n = 1129 + 1109 + 1116 + 714,
-    lab = "BPC Private",
-    color = "#cabcc9"
+    name = "BPC public",
+    n = 3819 + 2299, # CRC and lung
+    lab = "BPC public",
+    color = "#bb9bac"
   ) |>
   add_row(
     name = "Sponsored projects",
@@ -40,3 +40,5 @@ dat <- dat |>
     lab = "Special Projects",
     color = "#dcf3da"
   )
+
+readr::write_rds(dat, 'cohort_data.rds')

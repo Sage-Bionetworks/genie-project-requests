@@ -14,31 +14,31 @@ dat <- dat |>
     name = "GENIE",
     n = 230 * 10^3,
     lab = "Main GENIE",
-    color = "#a08498"
+    color = "#ffecd1"
   ) |>
   add_row(
     name = "BPC consortium",
     n = 3819 + 2299 + 1129 + 1109 + 1116 + 714,
     lab = "BPC consortium",
-    color = "#cabcc9"
+    color = "#001524"
   ) |>
   add_row(
     name = "BPC public",
     n = 3819 + 2299, # CRC and lung
     lab = "BPC public",
-    color = "#bb9bac"
+    color = "#15616d"
   ) |>
   add_row(
     name = "Sponsored projects",
     n = 1000,
     lab = "Sponsored Projects",
-    color = "#d4ded3"
+    color = "#ff7d00"
   ) |>
   add_row(
     name = "Special projects",
     n = 500,
     lab = "Special Projects",
-    color = "#dcf3da"
+    color = "#78290f"
   )
 
 readr::write_rds(dat, 'cohort_data.rds')

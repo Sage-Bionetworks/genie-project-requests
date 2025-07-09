@@ -53,6 +53,11 @@ if (any(is.na(release$region))) {
     cli_abort('Region is missing for at least one row.')
 }
 
+# rel_sum_site <- release %>%
+#     group_by(release, region, center) %>%
+#     summarize(n = length(unique(patient_id)), .groups = 'drop') %>%
+#     filter(region %in% 'Europe') %>%
+#     arrange(center, release)
 
 rel_sum_n <- release %>%
     group_by(release, region) %>%

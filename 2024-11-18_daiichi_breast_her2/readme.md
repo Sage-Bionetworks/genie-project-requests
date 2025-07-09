@@ -4,7 +4,7 @@ This is a request from Tony Wu on the possible number of HER2 ultra-low cases we
 
 ## Getting started
 
-The main workflow of the project is in `main.R`.  Run those steps to reproduce the anslysis.
+The main workflow of the project is in `main.R`.  Run those steps to reproduce the analysis.
 
 ## Built with
 

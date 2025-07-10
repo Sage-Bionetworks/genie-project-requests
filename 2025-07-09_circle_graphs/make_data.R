@@ -12,32 +12,32 @@ dat <- tibble(
 dat <- dat |>
   add_row(
     name = "GENIE",
-    n = 230 * 10^3,
-    lab = "Main GENIE",
+    n = 196 * 10^3,
+    lab = "Main<br>GENIE",
     color = "#ffecd1"
   ) |>
   add_row(
     name = "BPC consortium",
     n = 3819 + 2299 + 1129 + 1109 + 1116 + 714,
-    lab = "BPC consortium",
-    color = "#001524"
+    lab = "BPC<br>consortium",
+    color = "#B6E0FF"
   ) |>
   add_row(
     name = "BPC public",
-    n = 3819 + 2299, # CRC and lung
-    lab = "BPC public",
-    color = "#15616d"
+    n = 1846 + 1485, # CRC and lung
+    lab = "BPC<br>public",
+    color = "#49a2b6"
   ) |>
   add_row(
     name = "Sponsored projects",
     n = 1000,
-    lab = "Sponsored Projects",
+    lab = "Sponsored<br>projects",
     color = "#ff7d00"
   ) |>
   add_row(
-    name = "Special projects",
+    name = "Additional projects",
     n = 500,
-    lab = "Special Projects",
+    lab = "Additional<br>Projects",
     color = "#78290f"
   )
 

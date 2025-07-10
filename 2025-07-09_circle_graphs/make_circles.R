@@ -31,13 +31,13 @@ pos_addon <- tribble(
   0.3,
 
   "Sponsored projects",
-  0.1,
+  0.2,
   -0.6,
   0.3,
   -0.4,
 
-  "Special projects",
-  -0.1,
+  "Additional projects",
+  -0.2,
   -0.6,
   -0.3,
   -0.4
@@ -47,7 +47,7 @@ coh_dat <- coh_dat %>%
   mutate(
     lab = paste0(
       lab,
-      "<br>[n=",
+      "<br>[",
       formatC(n, format = 'f', big.mark = ",", digits = 0),
       "]"
     )

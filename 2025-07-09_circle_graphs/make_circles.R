@@ -27,7 +27,7 @@ pos_addon <- tribble(
   "BPC consortium",
   0.75,
   0,
-  0.55,
+  0.625,
   0.35,
 
   "Sponsored projects",
